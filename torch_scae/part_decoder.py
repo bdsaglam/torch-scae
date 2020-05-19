@@ -183,4 +183,5 @@ class TemplateBasedImageDecoder(nn.Module):
             raw_templates=raw_templates,
             transformed_templates=transformed_templates[:, :-1],
             mixing_logits=template_mixing_logits[:, :-1],
-            pdf=rec_pdf)
+            pdf=rec_pdf,
+        )

@@ -33,7 +33,7 @@ class CNNEncoder(nn.Module):
 class CapsuleImageEncoder(nn.Module):
     """Primary capsule for images."""
     Result = collections.namedtuple(
-        'PrimaryCapsuleResult',
+        'CapsuleImageEncoderResult',
         ['pose', 'feature', 'presence', 'presence_logit', 'img_embedding']
     )
 
@@ -89,4 +89,8 @@ class CapsuleImageEncoder(nn.Module):
 
         presence_prob = torch.sigmoid(presence_logit)
         pose = cv_ops.geometric_transform(pose, self._similarity_transform)
-        return self.Result(pose, special_feature, presence_prob, presence_logit, img_embedding)
+        return self.Result(pose,
+                           special_feature,
+                           presence_prob,
+                           presence_logit,
+                           img_embedding)

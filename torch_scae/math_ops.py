@@ -8,9 +8,13 @@ def log_safe(tensor, eps=1e-16):
     return tensor
 
 
-def cross_entropy_safe(labels, probs, dim=-1):
-    return torch.mean(-torch.sum(labels * log_safe(probs), dim=dim))
+def cross_entropy_safe(true_probs, probs, dim=-1):
+    return torch.mean(-torch.sum(true_probs * log_safe(probs), dim=dim))
 
 
 def normalize(tensor, dim):
     return tensor / (torch.sum(tensor, dim, keepdim=True) + 1e-8)
+
+
+def l2_loss(tensor):
+    return torch.sum(tensor ** 2) / 2
