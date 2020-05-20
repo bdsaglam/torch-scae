@@ -66,7 +66,7 @@ class SCAE(nn.Module):
         self._posterior_between_example_sparsity_weight = posterior_between_example_sparsity_weight
         self._part_caps_sparsity_weight = part_caps_sparsity_weight
 
-    def forward(self, image, reconstruction_target=None, label=None):
+    def forward(self, image, label=None, reconstruction_target=None):
         batch_size = image.shape[0]
 
         if reconstruction_target is None:
@@ -213,15 +213,15 @@ class SCAE(nn.Module):
             num_classes=self._n_classes)
 
         loss = (
-            -res.rec_ll
-            - self._caps_ll_weight * res.log_prob
-            + self._dynamic_l2_weight * res.dynamic_weights_l2
-            + self._part_caps_sparsity_weight * res.part_caps_l1
-            + self._posterior_within_example_sparsity_weight * res.posterior_within_sparsity_loss
-            + self._posterior_between_example_sparsity_weight * res.posterior_between_sparsity_loss
-            + self._prior_within_example_sparsity_weight * res.prior_within_sparsity_loss
-            + self._prior_between_example_sparsity_weight * res.prior_between_sparsity_loss
-            + self._weight_decay * res.weight_decay_loss
+                -res.rec_ll
+                - self._caps_ll_weight * res.log_prob
+                + self._dynamic_l2_weight * res.dynamic_weights_l2
+                + self._part_caps_sparsity_weight * res.part_caps_l1
+                + self._posterior_within_example_sparsity_weight * res.posterior_within_sparsity_loss
+                + self._posterior_between_example_sparsity_weight * res.posterior_between_sparsity_loss
+                + self._prior_within_example_sparsity_weight * res.prior_within_sparsity_loss
+                + self._prior_between_example_sparsity_weight * res.prior_between_sparsity_loss
+                + self._weight_decay * res.weight_decay_loss
         )
 
         try:
