@@ -355,23 +355,6 @@ class CapsuleLikelihood(nn.Module):
         )
 
 
-def capsule_entropy(caps_presence_prob, k=1, **unused_kwargs):
-    """Computes entropy in capsule activations."""
-    del unused_kwargs
-
-    # caps_presence_prob (B, O)
-
-    within_prob = math_ops.normalize(caps_presence_prob, 1)  # (B, O)
-    within_example = math_ops.cross_entropy_safe(within_prob,
-                                                 within_prob * k)  # scalar
-
-    total_caps_prob = torch.sum(caps_presence_prob, 0)  # (O, )
-    between_prob = math_ops.normalize(total_caps_prob, 0)  # (O, )
-    between_example = math_ops.cross_entropy_safe(between_prob,
-                                                  between_prob * k)  # scalar
-    return within_example, between_example
-
-
 class CapsuleObjectDecoder(nn.Module):
     def __init__(self, capsule_layer):
         """Builds the module.
@@ -418,14 +401,7 @@ class CapsuleObjectDecoder(nn.Module):
         return res
 
 
-# kl(aggregated_prob||uniform)
-def neg_capsule_kl(caps_presence_prob, **unused_kwargs):
-    del unused_kwargs
-
-    num_caps = int(caps_presence_prob.shape[-1])
-    return capsule_entropy(caps_presence_prob, k=num_caps)
-
-
+# prior sparsity loss
 # l2(aggregated_prob - constant)
 def capsule_l2_loss(caps_presence_prob,
                     num_classes: int,
@@ -448,21 +424,45 @@ def capsule_l2_loss(caps_presence_prob,
     between_example = torch.mean(
         (caps_presence_prob.sum(0) - between_example_constant) ** 2)
 
-    # neg between example because it's subtracted from the loss later on
-    # TODO(BDS): remove negate on between_example
+    return within_example, between_example
+
+
+# posterior sparsity loss
+def capsule_entropy_loss(caps_presence_prob, k=1, **unused_kwargs):
+    """Computes entropy in capsule activations."""
+    del unused_kwargs
+
+    # caps_presence_prob (B, O)
+
+    within_prob = math_ops.normalize(caps_presence_prob, 1)  # (B, O)
+    within_example = math_ops.cross_entropy_safe(within_prob,
+                                                 within_prob * k)  # scalar
+
+    total_caps_prob = torch.sum(caps_presence_prob, 0)  # (O, )
+    between_prob = math_ops.normalize(total_caps_prob, 0)  # (O, )
+    between_example = math_ops.cross_entropy_safe(between_prob,
+                                                  between_prob * k)  # scalar
+    # negate since we want to increase between example entropy
     return within_example, -between_example
+
+
+# kl(aggregated_prob||uniform)
+def neg_capsule_kl(caps_presence_prob, **unused_kwargs):
+    del unused_kwargs
+
+    num_caps = int(caps_presence_prob.shape[-1])
+    return capsule_entropy_loss(caps_presence_prob, k=num_caps)
 
 
 def sparsity_loss(loss_type, *args, **kwargs):
     """Computes capsule sparsity loss according to the specified type."""
-    if loss_type == 'entropy':
-        sparsity_func = capsule_entropy
+    if loss_type == 'l2':
+        sparsity_func = capsule_l2_loss
+    elif loss_type == 'entropy':
+        sparsity_func = capsule_entropy_loss
     elif loss_type == 'kl':
         sparsity_func = neg_capsule_kl
-    elif loss_type == 'l2':
-        sparsity_func = capsule_l2_loss
     else:
-        raise ValueError(
-            'Invalid sparsity loss: "{}"'.format(loss_type))
+        raise ValueError(f"Invalid sparsity loss: {loss_type}")
 
     return sparsity_func(*args, **kwargs)

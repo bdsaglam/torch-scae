@@ -6,13 +6,7 @@ from torch_scae.object_decoder import sparsity_loss
 
 
 class SCAE(nn.Module):
-    """Capsule autoencoder."""
-
-    def make_reconstruction_target(self, image, sobel=False):
-        if sobel:
-            # TODO
-            image = preprocess.normalized_sobel_edges(image)
-        return image
+    """Stacked Capsule Auto-Encoder"""
 
     def __init__(
             self,
@@ -24,15 +18,15 @@ class SCAE(nn.Module):
             n_classes=None,
             vote_type='soft',
             presence_type='enc',
-            stop_grad_caps_input=False,
-            stop_grad_caps_target=False,
+            stop_grad_caps_input=True,
+            stop_grad_caps_target=True,
             dynamic_l2_weight=0.,
             caps_ll_weight=0.,
-            prior_sparsity_loss_type='kl',
+            prior_sparsity_loss_type='l2',
             prior_within_example_sparsity_weight=0.,
             prior_between_example_sparsity_weight=0.,
             prior_within_example_constant=0.,
-            posterior_sparsity_loss_type='kl',
+            posterior_sparsity_loss_type='entropy',
             posterior_within_example_sparsity_weight=0.,
             posterior_between_example_sparsity_weight=0.,
             part_caps_sparsity_weight=0.,
@@ -190,7 +184,7 @@ class SCAE(nn.Module):
                 res.caps_presence_prob.detach(), label)
 
             res.best_cls_acc = torch.max(res.prior_cls_acc,
-                                            res.posterior_cls_acc)
+                                         res.posterior_cls_acc)
 
         res.part_caps_l1 = res.part_presence.sum(-1).mean()
 
@@ -203,15 +197,6 @@ class SCAE(nn.Module):
         return xe_loss, accuracy
 
     def loss(self, res):
-        n_points = res.posterior_mixing_prob.shape[1]
-        mass_explained_by_capsule = res.posterior_mixing_prob.sum(1)
-
-        (res.posterior_within_sparsity_loss,
-         res.posterior_between_sparsity_loss) = sparsity_loss(
-            self._posterior_sparsity_loss_type,
-            mass_explained_by_capsule / n_points,
-            num_classes=self._n_classes)
-
         (res.prior_within_sparsity_loss,
          res.prior_between_sparsity_loss) = sparsity_loss(
             self._prior_sparsity_loss_type,
@@ -219,19 +204,25 @@ class SCAE(nn.Module):
             num_classes=self._n_classes,
             within_example_constant=self._prior_within_example_constant)
 
-        loss = (-res.rec_ll - self._caps_ll_weight * res.log_prob +
-                self._dynamic_l2_weight * res.dynamic_weights_l2 +
-                self._part_caps_sparsity_weight * res.part_caps_l1 +
-                self._posterior_within_example_sparsity_weight *
-                res.posterior_within_sparsity_loss -
-                self._posterior_between_example_sparsity_weight *
-                res.posterior_between_sparsity_loss +
-                self._prior_within_example_sparsity_weight *
-                res.prior_within_sparsity_loss -
-                self._prior_between_example_sparsity_weight *
-                res.prior_between_sparsity_loss +
-                self._weight_decay * res.weight_decay_loss
-                )
+        mass_explained_by_capsule = res.posterior_mixing_prob.sum(1)
+        n_points = res.posterior_mixing_prob.shape[1]
+        (res.posterior_within_sparsity_loss,
+         res.posterior_between_sparsity_loss) = sparsity_loss(
+            self._posterior_sparsity_loss_type,
+            mass_explained_by_capsule / n_points,
+            num_classes=self._n_classes)
+
+        loss = (
+            -res.rec_ll
+            - self._caps_ll_weight * res.log_prob
+            + self._dynamic_l2_weight * res.dynamic_weights_l2
+            + self._part_caps_sparsity_weight * res.part_caps_l1
+            + self._posterior_within_example_sparsity_weight * res.posterior_within_sparsity_loss
+            + self._posterior_between_example_sparsity_weight * res.posterior_between_sparsity_loss
+            + self._prior_within_example_sparsity_weight * res.prior_within_sparsity_loss
+            + self._prior_between_example_sparsity_weight * res.prior_between_sparsity_loss
+            + self._weight_decay * res.weight_decay_loss
+        )
 
         try:
             loss += res.posterior_cls_xe + res.prior_cls_xe
@@ -239,129 +230,3 @@ class SCAE(nn.Module):
             pass
 
         return loss
-
-    # def _report(self, data, res):
-    #     reports = super(ImageAutoencoder, self)._report(data, res)
-    #
-    #     n_caps = self._obj_decoder._n_caps  # pylint:disable=protected-access
-    #
-    #     is_from_capsule = res.is_from_capsule
-    #     ones = tf.ones_like(is_from_capsule)
-    #     capsule_one_hot = tf.one_hot((is_from_capsule + ones),
-    #                                  depth=n_caps + 1)[Ellipsis, 1:]
-    #
-    #     num_per_group = tf.reduce_sum(capsule_one_hot, 1)
-    #     num_per_group_per_batch = tf.reduce_mean(tf.to_float(num_per_group), 0)
-    #
-    #     reports.update({
-    #         'votes_per_capsule_{}'.format(k): v
-    #         for k, v in enumerate(tf.unstack(num_per_group_per_batch))
-    #     })
-    #
-    #     label = self._label(data)
-    #
-    #     return reports
-
-    # def _plot(self, data, res, name=None):
-    #
-    #     img = self._img(data)
-    #     label = self._label(data)
-    #     if label is not None:
-    #         label_one_hot = tf.one_hot(label, depth=self._n_classes)
-    #
-    #     _render_activations = functools.partial(  # pylint:disable=invalid-name
-    #         plot.render_activations,
-    #         height=int(img.shape[1]),
-    #         pixels_per_caps=3,
-    #         cmap='viridis')
-    #
-    #     mass_explained_by_capsule = tf.reduce_sum(res.posterior_mixing_probs, 1)
-    #     normalized_mass_expplained_by_capsule = mass_explained_by_capsule / tf.reduce_max(
-    #         mass_explained_by_capsule, -1, keepdims=True)  # pylint:disable=line-too-long
-    #
-    #     posterior_caps_activation = _render_activations(
-    #         normalized_mass_expplained_by_capsule)  # pylint:disable=line-too-long
-    #     prior_caps_activation = _render_activations(res.caps_presence_prob)
-    #
-    #     is_from_capsule = snt.BatchApply(_render_activations)(
-    #         res.posterior_mixing_probs)
-    #
-    #     green = res.top_down_rec
-    #     rec_red = res.rec_mode
-    #     rec_green = green.pdf.mode()
-    #
-    #     flat_per_caps_rec = res.top_down_per_caps_rec.pdf.mode()
-    #     shape = res.vote.shape[:2].concatenate(flat_per_caps_rec.shape[1:])
-    #     per_caps_rec = tf.reshape(flat_per_caps_rec, shape)
-    #     per_caps_rec = plot.concat_images(
-    #         tf.unstack(per_caps_rec, axis=1), 1, vertical=False)
-    #     one_image = tf.reduce_mean(
-    #         self._img(data, self._prep), axis=-1, keepdims=True)
-    #     one_rec = tf.reduce_mean(rec_red, axis=-1, keepdims=True)
-    #     diff = tf.concat([one_image, one_rec, tf.zeros_like(one_image)], -1)
-    #
-    #     used_templates = tf.reduce_mean(res.used_templates, axis=-1, keepdims=True)
-    #     green_templates = tf.reduce_mean(
-    #         green.transformed_templates, axis=-1, keepdims=True)
-    #     templates = tf.concat(
-    #         [used_templates, green_templates,
-    #          tf.zeros_like(used_templates)], -1)
-    #
-    #     templates = tf.concat(
-    #         [templates,
-    #          tf.ones_like(templates[:, :, :, :1]), is_from_capsule], 3)
-    #
-    #     all_imgs = [
-    #                    img, rec_red, rec_green, diff, prior_caps_activation,
-    #                    tf.zeros_like(rec_red[:, :, :1]), posterior_caps_activation,
-    #                    per_caps_rec
-    #                ] + list(tf.unstack(templates, axis=1))
-    #
-    #     for i, img in enumerate(all_imgs):
-    #         if img.shape[-1] == 1:
-    #             all_imgs[i] = tf.image.grayscale_to_rgb(img)
-    #
-    #     img_with_templates = plot.concat_images(all_imgs, 1, vertical=False)
-    #
-    #     def render_corr(x, y):
-    #         corr = abs(plot.correlation(x, y))
-    #         rendered_corr = tf.expand_dims(_render_activations(corr), 0)
-    #         return plot.concat_images(
-    #             tf.unstack(rendered_corr, axis=1), 3, vertical=False)
-    #
-    #     if label is not None:
-    #
-    #         posterior_label_corr = render_corr(normalized_mass_expplained_by_capsule,
-    #                                            label_one_hot)
-    #         prior_label_corr = render_corr(res.caps_presence_prob, label_one_hot)
-    #         label_corr = plot.concat_images([prior_label_corr, posterior_label_corr],
-    #                                         3,
-    #                                         vertical=True)
-    #     else:
-    #         label_corr = tf.zeros_like(img)
-    #
-    #     n_examples = min(int(shape[0]), 16)
-    #     plot_params = dict(
-    #         img_with_templates=dict(
-    #             grid_height=n_examples,
-    #             zoom=3.,
-    #         ))
-    #
-    #     templates = res.templates
-    #     if len(templates.shape) == 5:
-    #         if templates.shape[0] == 1:
-    #             templates = tf.squeeze(templates, 0)
-    #
-    #         else:
-    #             templates = templates[:n_examples]
-    #             templates = plot.concat_images(
-    #                 tf.unstack(templates, axis=1), 1, vertical=False)
-    #             plot_params['templates'] = dict(grid_height=n_examples)
-    #
-    #     plot_dict = dict(
-    #         templates=templates,
-    #         img_with_templates=img_with_templates[:n_examples],
-    #         label_corr=label_corr,
-    #     )
-    #
-    #     return plot_dict, plot_params
