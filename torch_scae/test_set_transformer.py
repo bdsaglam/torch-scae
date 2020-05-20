@@ -6,7 +6,7 @@ from torch_scae.set_transformer import qkv_attention, MultiHeadQKVAttention,\
     MAB, SAB, ISAB, PMA, SetTransformer
 
 
-class QKVAttentionTestCase(unittest.TestCase):
+class SetTransformerTestCase(unittest.TestCase):
     def test_qkv_attention(self):
         B = 32
         d_k = 16
