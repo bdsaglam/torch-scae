@@ -3,6 +3,7 @@ from typing import Tuple
 
 import torch
 import torch.nn as nn
+from monty.collections import AttrDict
 
 from torch_scae import cv_ops
 from torch_scae.nn_ext import Conv2dStack, multiple_attention_pooling_2d
@@ -89,8 +90,8 @@ class CapsuleImageEncoder(nn.Module):
 
         presence_prob = torch.sigmoid(presence_logit)
         pose = cv_ops.geometric_transform(pose, self._similarity_transform)
-        return self.Result(pose,
-                           special_feature,
-                           presence_prob,
-                           presence_logit,
-                           img_embedding)
+        return AttrDict(pose=pose,
+                        feature=special_feature,
+                        presence=presence_prob,
+                        presence_logit=presence_logit,
+                        img_embedding=img_embedding)
