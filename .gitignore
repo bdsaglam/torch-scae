@@ -2,6 +2,7 @@ checkpoints/
 data/
 
 # Jupyter notebook checkpoints
+notebooks/
 notebooks/.ipynb_checkpoints
 
 # PyCharm files
