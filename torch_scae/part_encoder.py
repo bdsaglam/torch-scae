@@ -71,6 +71,8 @@ class CapsuleImageEncoder(nn.Module):
         self.att_conv = nn.Conv2d(in_channels, out_channels, kernel_size=1, stride=1)
 
     def forward(self, image):  # (B, C, H, H)
+        device = next(iter(self.parameters())).device
+
         batch_size = image.shape[0]  # B
         img_embedding = self.encoder(image)  # (B, D, G, G)
 
@@ -87,7 +89,7 @@ class CapsuleImageEncoder(nn.Module):
         presence_logit = presence_logit.squeeze(-1)  # (B, M)
         if self.noise_scale > 0. and self.training:
             noise = (torch.rand(*presence_logit.shape) - .5) * self.noise_scale
-            presence_logit = presence_logit + noise
+            presence_logit = presence_logit + noise.to(device)
 
         presence_prob = torch.sigmoid(presence_logit)
         pose = cv_ops.geometric_transform(pose, self.similarity_transform)

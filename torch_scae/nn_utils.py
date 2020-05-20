@@ -29,5 +29,7 @@ def conv_output_shape(input_shape: Tuple[int, int, int],
 
 
 def measure_shape(network, input_shape, input_dtype=torch.float32):
+    device = next(iter(network.parameters())).device
     with torch.no_grad():
-        return network(torch.rand(1, *input_shape, dtype=input_dtype)).shape[1:]
+        input = torch.rand(1, *input_shape, dtype=input_dtype, device=device)
+        return network(input).shape[1:]

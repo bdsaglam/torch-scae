@@ -67,17 +67,18 @@ class SCAE(nn.Module):
         self._part_caps_sparsity_weight = part_caps_sparsity_weight
 
     def forward(self, image, label=None, reconstruction_target=None):
-        batch_size = image.shape[0]
+        device = next(iter(self.parameters())).device
 
         if reconstruction_target is None:
             reconstruction_target = image
 
+        batch_size = image.shape[0]
         part_encoding = self._part_encoder(image)
         pose = part_encoding.pose
         presence = part_encoding.presence
 
-        expanded_pres = presence.unsqueeze(-1)
-        input_pose = torch.cat([pose, 1. - expanded_pres], -1)
+        expanded_presence = presence.unsqueeze(-1)
+        input_pose = torch.cat([pose, 1. - expanded_presence], -1)
         input_presence = presence
 
         if self._stop_grad_caps_input:

@@ -55,8 +55,7 @@ class TemplateGenerator(nn.Module):
                 sizes=[self.dim_feature, 32, self.n_channels])
 
     def forward(self, feature=None, batch_size=None):
-        """Builds the module.
-
+        """
         Args:
           feature: [B, n_templates, dim_feature] tensor; these features
           are used to change templates based on the input, if present.
@@ -64,6 +63,8 @@ class TemplateGenerator(nn.Module):
         Returns:
           (B, n_templates, n_channels, *template_size) tensor.
         """
+        device = next(iter(self.parameters())).device
+
         if feature is not None:
             batch_size = feature.shape[0]
 
@@ -192,10 +193,10 @@ class TemplateBasedImageDecoder(nn.Module):
         if self._learn_output_scale:
             scale = F.softplus(self.scale) + 1e-4
         else:
-            scale = 1
+            scale = torch.tensor([1.0], device=device)
 
         if presence is not None:
-            bg_presence = torch.ones([batch_size, 1])
+            bg_presence = torch.ones([batch_size, 1], device=device)
             presence = torch.cat([presence, bg_presence], dim=1)
             presence = presence.view(
                 *presence.shape, *([1] * len(template_mixing_logits.shape[2:])))

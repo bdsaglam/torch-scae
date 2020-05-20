@@ -129,6 +129,8 @@ class CapsuleLayer(nn.Module):
         Returns:
           A bunch of stuff.
         """
+        device = next(iter(self.parameters())).device
+
         batch_size = feature.shape[0]  # B
 
         # Predict capsule and additional params from the input encoding.
@@ -144,6 +146,7 @@ class CapsuleLayer(nn.Module):
         else:
             pmf = Bernoulli(1. - self.caps_dropout_rate)
             caps_exist = pmf.sample((batch_size, self.n_caps, 1))  # (B, O, 1)
+        caps_exist = caps_exist.to(device)
 
         caps_param = torch.cat([raw_caps_param, caps_exist], -1)  # (B, O, P+1)
 
@@ -174,10 +177,10 @@ class CapsuleLayer(nn.Module):
                 pdf = LogisticNormal(0., self.noise_scale)
                 noise = pdf.sample(tensor.shape)
             elif not self.noise_type:
-                noise = 0.
+                noise = torch.tensor([0.0])
             else:
                 raise ValueError(f'Invalid noise type: {self.noise_type}')
-            return tensor + noise
+            return tensor + noise.to(device)
 
         pres_logit_per_caps = add_noise(pres_logit_per_caps)
         pres_logit_per_vote = add_noise(pres_logit_per_vote)
@@ -189,7 +192,7 @@ class CapsuleLayer(nn.Module):
             ccr = parent_transform
 
         if not self.deformations:
-            cpr_dynamic = torch.zeros_like(cpr_dynamic)
+            cpr_dynamic = torch.zeros_like(cpr_dynamic, device=device)
 
         cpr = self._make_transform(cpr_dynamic + self.cpr_static)
         ccr_per_vote = ccr.repeat(1, 1, self.n_votes, 1, 1)
@@ -206,7 +209,7 @@ class CapsuleLayer(nn.Module):
             # for numerical stability
             scale_per_vote = F.softplus(scale_per_vote + .5) + 1e-2
         else:
-            scale_per_vote = torch.zeros_like(scale_per_vote) + 1.
+            scale_per_vote = torch.ones_like(scale_per_vote, device=device)
 
         return AttrDict(
             vote=votes,
@@ -250,6 +253,8 @@ class CapsuleLikelihood(nn.Module):
         return self(x, presence).winner
 
     def forward(self, x, presence=None):  # (B, M, P), (B, M)
+        device = next(iter(self.parameters())).device
+
         batch_size, n_input_points, dim_in = x.shape  # B, M, P
 
         # since scale is a per-caps scalar and we have one vote per capsule
@@ -263,20 +268,19 @@ class CapsuleLikelihood(nn.Module):
 
         # (B, 1, M)
         dummy_vote_log_prob = torch.zeros(
-            batch_size, 1, n_input_points) - 2. * np.log(10.)
+            batch_size, 1, n_input_points, device=device) - 2. * np.log(10.)
 
         # (B, O+1, M)
         vote_log_prob = torch.cat([vote_log_prob, dummy_vote_log_prob], 1)
 
         mixing_logit = math_ops.log_safe(self.vote_presence_prob)  # (B, O, M)
 
-        dummy_logit = torch.zeros(batch_size, 1, 1) - 2. * np.log(10.)
+        dummy_logit = torch.zeros(batch_size, 1, 1, device=device) - 2. * np.log(10.)
         dummy_logit = dummy_logit.repeat(1, 1, n_input_points)  # (B, 1, M)
 
         # (B, O+1, M)
         mixing_logit = torch.cat([mixing_logit, dummy_logit], 1)
-        mixing_log_prob = mixing_logit - mixing_logit.logsumexp(
-            1, keepdim=True)  # (B, O+1, M)
+        mixing_log_prob = mixing_logit - mixing_logit.logsumexp(1, keepdim=True)  # (B, O+1, M)
 
         # (B, M)
         mixture_log_prob_per_point = (mixing_logit + vote_log_prob).logsumexp(1)
@@ -298,10 +302,10 @@ class CapsuleLikelihood(nn.Module):
         winning_vote_idx = torch.argmax(
             posterior_mixing_logits_per_point[:, :-1], 1)
 
-        batch_idx = torch.arange(batch_size).unsqueeze(1)  # (B, 1)
+        batch_idx = torch.arange(batch_size, device=device).unsqueeze(1)  # (B, 1)
         batch_idx = batch_idx.repeat(1, n_input_points)  # (B, M)
 
-        point_idx = torch.arange(n_input_points).unsqueeze(0)  # (1, M)
+        point_idx = torch.arange(n_input_points, device=device).unsqueeze(0)  # (1, M)
         point_idx = point_idx.repeat(batch_size, 1)  # (B, M)
 
         idx = torch.stack([batch_idx, winning_vote_idx, point_idx], -1)
@@ -325,7 +329,7 @@ class CapsuleLikelihood(nn.Module):
         posterior_mixing_prob = F.softmax(posterior_mixing_logits_per_point, 1)
 
         dummy_vote = self.dummy_vote.repeat(batch_size, 1, 1, 1)  # (B, 1, M, P)
-        dummy_pres = torch.zeros([batch_size, 1, n_input_points])
+        dummy_pres = torch.zeros([batch_size, 1, n_input_points], device=device)
 
         votes = torch.cat((self.vote, dummy_vote), 1)  # (B, O+1, M, P)
         pres = torch.cat([self.vote_presence_prob, dummy_pres], 1)  # (B, O+1, M)
