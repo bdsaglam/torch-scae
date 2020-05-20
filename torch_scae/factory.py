@@ -5,7 +5,7 @@ from torch_scae.set_transformer import SetTransformer
 from torch_scae.stacked_capsule_auto_encoder import SCAE
 
 
-def make_scae_from_config(config):
+def make_scae(config):
     cnn_encoder = CNNEncoder(**config.pcae_cnn_encoder)
     part_encoder = CapsuleImageEncoder(
         encoder=cnn_encoder,
