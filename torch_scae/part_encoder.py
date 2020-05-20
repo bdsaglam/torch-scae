@@ -57,9 +57,9 @@ class CapsuleImageEncoder(nn.Module):
         self._noise_scale = noise_scale
         self._similarity_transform = similarity_transform
 
-        self.build()
+        self._build()
 
-    def build(self):
+    def _build(self):
         self.img_embedding_bias = nn.Parameter(
             data=torch.zeros(self._encoder.output_shape, dtype=torch.float32),
             requires_grad=True

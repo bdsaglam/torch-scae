@@ -82,9 +82,9 @@ class CapsuleLayer(nn.Module):
 
         self._similarity_transform = similarity_transform
 
-        self.build()
+        self._build()
 
-    def build(self):
+    def _build(self):
         # Use separate parameters to do predictions for different capsules.
         sizes = [self._dim_feature] + self._hidden_sizes + [self._n_caps_params]
         self.mlps = nn.ModuleList([
