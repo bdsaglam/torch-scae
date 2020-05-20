@@ -41,7 +41,7 @@ class GaussianMixture:
     def log_prob(self, x):
         x = x.unsqueeze(1)
         lp = self._component_log_prob(x)
-        return torch.logsumexp(lp + self.mixing_log_prob(), 1)
+        return torch.logsumexp(lp + self.mixing_log_prob, 1)
 
     def _component_log_prob(self, x):
         lp = self.dist.log_prob(x)

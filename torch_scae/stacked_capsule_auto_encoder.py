@@ -177,7 +177,7 @@ class SCAE(nn.Module):
         res.used_templates = part_decoding.transformed_templates
 
         res.rec_mode = part_decoding.pdf.mode()
-        res.rec_mean = part_decoding.pdf.mean()
+        res.rec_mean = part_decoding.pdf.mean
 
         res.mse_per_pixel = (reconstruction_target - res.rec_mode) ** 2
         res.mse = res.mse_per_pixel.view(
