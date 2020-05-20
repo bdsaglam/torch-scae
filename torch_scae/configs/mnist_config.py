@@ -13,7 +13,7 @@ pcae_cnn_encoder = AttrDict(
     activate_final=True
 )
 
-pcae_primary_capsule = AttrDict(
+pcae_encoder = AttrDict(
     input_shape=image_shape,
     n_caps=40,
     n_poses=6,
@@ -21,23 +21,29 @@ pcae_primary_capsule = AttrDict(
     similarity_transform=False,
 )
 
-pcae_template_decoder = AttrDict(
-    n_templates=pcae_primary_capsule.n_caps,
+pcae_template_generator = AttrDict(
+    n_templates=pcae_encoder.n_caps,
+    n_channels=image_shape[0],
     template_size=(11, 11),
-    output_size=image_shape[1:],
-    n_channels=1,
-    n_template_features=pcae_primary_capsule.n_special_features,
-    learn_output_scale=False,
-    colorize_templates=True,
-    use_alpha_channel=True,
     template_nonlin=torch.sigmoid,
+    dim_feature=pcae_encoder.n_special_features,
+    colorize_templates=True,
     color_nonlin=torch.sigmoid,
+)
+
+pcae_decoder = AttrDict(
+    n_templates=pcae_template_generator.n_templates,
+    template_size=pcae_template_generator.template_size,
+    output_size=image_shape[1:],
+    learn_output_scale=False,
+    use_alpha_channel=True,
+    background_value=True,
 )
 
 ocae_encoder_set_transformer = AttrDict(
     n_layers=3,
     n_heads=1,
-    dim_in=pcae_template_decoder.n_template_features,
+    dim_in=pcae_template_generator.dim_feature,
     dim_hidden=16,
     dim_out=256,
     n_outputs=n_obj_caps,
@@ -47,7 +53,7 @@ ocae_encoder_set_transformer = AttrDict(
 ocae_decoder_capsule = AttrDict(
     n_caps=ocae_encoder_set_transformer.n_outputs,
     dim_feature=ocae_encoder_set_transformer.dim_out,
-    n_votes=pcae_template_decoder.n_templates,
+    n_votes=pcae_decoder.n_templates,
     n_caps_params=32,
     hidden_sizes=(128,),
     caps_dropout_rate=0.0,

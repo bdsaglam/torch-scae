@@ -28,12 +28,12 @@ class CapsuleImageEncoderTestCase(unittest.TestCase):
         )
         capsule_image_encoder = CapsuleImageEncoder(
             encoder=cnn_encoder,
-            **config.pcae_primary_capsule
+            **config.pcae_encoder
         )
 
-        n_caps = config.pcae_primary_capsule.n_caps
-        n_poses = config.pcae_primary_capsule.n_poses
-        n_special_features = config.pcae_primary_capsule.n_special_features
+        n_caps = config.pcae_encoder.n_caps
+        n_poses = config.pcae_encoder.n_poses
+        n_special_features = config.pcae_encoder.n_special_features
         with torch.no_grad():
             batch_size = 4
             image = torch.rand(batch_size, *config.image_shape)
