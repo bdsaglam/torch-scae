@@ -1,9 +1,11 @@
 import torch
 from monty.collections import AttrDict
+from torch_scae.general_utils import prod
 
 image_shape = (1, 28, 28)
 n_classes = 10
-n_obj_caps = 16
+n_part_caps = 40
+n_obj_caps = 32
 
 pcae_cnn_encoder = AttrDict(
     input_shape=image_shape,
@@ -15,7 +17,7 @@ pcae_cnn_encoder = AttrDict(
 
 pcae_encoder = AttrDict(
     input_shape=image_shape,
-    n_caps=40,
+    n_caps=n_part_caps,
     n_poses=6,
     n_special_features=16,
     similarity_transform=False,
@@ -40,14 +42,14 @@ pcae_decoder = AttrDict(
     background_value=True,
 )
 
+_ocae_st_dim_in = (
+        pcae_encoder.n_poses + pcae_template_generator.dim_feature + 1 \
+        + pcae_template_generator.n_channels * prod(pcae_template_generator.template_size)
+)
 ocae_encoder_set_transformer = AttrDict(
     n_layers=3,
     n_heads=1,
-    dim_in=(
-            pcae_encoder.n_poses + pcae_template_generator.dim_feature  + 1 \
-            + pcae_template_generator.n_channels * pcae_template_generator.template_size[0] *
-            pcae_template_generator.template_size[1]
-    ),
+    dim_in=_ocae_st_dim_in,
     dim_hidden=16,
     dim_out=256,
     n_outputs=n_obj_caps,
