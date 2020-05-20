@@ -12,7 +12,7 @@ class CapsuleLayerTestCase(unittest.TestCase):
             n_caps=32,
             dim_feature=256,
             n_votes=40,
-            dim_hidden_caps=32,
+            dim_caps=32,
             hidden_sizes=(128,),
             learn_vote_scale=True,
             deformations=True,
@@ -26,7 +26,7 @@ class CapsuleLayerTestCase(unittest.TestCase):
         O = capsule_layer_config.n_caps
         F = capsule_layer_config.dim_feature
         V = capsule_layer_config.n_votes
-        H = capsule_layer_config.dim_hidden_caps
+        H = capsule_layer_config.dim_caps
 
         feature = torch.rand(B, O, F)
         parent_transform = None
@@ -127,7 +127,7 @@ class CapsuleObjectDecoderTestCase(unittest.TestCase):
             n_caps=32,
             dim_feature=256,
             n_votes=40,
-            dim_hidden_caps=32,
+            dim_caps=32,
             hidden_sizes=(128,),
             learn_vote_scale=True,
             deformations=True,
@@ -143,7 +143,7 @@ class CapsuleObjectDecoderTestCase(unittest.TestCase):
         O = capsule_layer_config.n_caps
         D = capsule_layer_config.dim_feature
         V = capsule_layer_config.n_votes
-        H = capsule_layer_config.dim_hidden_caps
+        H = capsule_layer_config.dim_caps
         P = 6
 
         h = torch.rand(B, O, D)

@@ -32,13 +32,13 @@ class CapsuleLayer(nn.Module):
     """Implementation of a capsule layer."""
 
     # number of parameters needed to parametrize linear transformations.
-    n_transform_params = 6
+    n_transform_params = 6  # P
 
     def __init__(self,
                  n_caps,
                  dim_feature,
                  n_votes,
-                 dim_hidden_caps,
+                 dim_caps,
                  hidden_sizes=(128,),
                  caps_dropout_rate=0.0,
                  learn_vote_scale=False,
@@ -51,7 +51,7 @@ class CapsuleLayer(nn.Module):
 
         Args:
           n_caps: int, number of capsules.
-          dim_hidden_caps: int, number of capsule parameters
+          dim_caps: int, number of capsule parameters
           hidden_sizes: int or sequence of ints, number of hidden units for an MLP
             which predicts capsule params from the input encoding.
           n_caps_dims: int, number of capsule coordinates.
@@ -71,7 +71,7 @@ class CapsuleLayer(nn.Module):
         self.n_caps = n_caps  # O
         self.dim_feature = dim_feature  # F
         self.hidden_sizes = list(hidden_sizes)  # [H_i, ...]
-        self.dim_hidden_caps = dim_hidden_caps  # P
+        self.dim_caps = dim_caps  # D
         self.caps_dropout_rate = caps_dropout_rate
         self.n_votes = n_votes
         self.learn_vote_scale = learn_vote_scale
@@ -85,7 +85,7 @@ class CapsuleLayer(nn.Module):
 
     def _build(self):
         # Use separate parameters to do predictions for different capsules.
-        sizes = [self.dim_feature] + self.hidden_sizes + [self.dim_hidden_caps]
+        sizes = [self.dim_feature] + self.hidden_sizes + [self.dim_caps]
         self.mlps = nn.ModuleList([
             nn_ext.MLP(sizes=sizes)
             for _ in range(self.n_caps)
@@ -103,7 +103,7 @@ class CapsuleLayer(nn.Module):
 
         # we don't use bias in the output layer in order to separate the static
         # and dynamic parts of the CPR
-        sizes = [self.dim_hidden_caps + 1] + self.hidden_sizes + [self.n_outputs]
+        sizes = [self.dim_caps + 1] + self.hidden_sizes + [self.n_outputs]
         self.caps_mlps = nn.ModuleList([
             nn_ext.MLP(sizes=sizes, bias=False)
             for _ in range(self.n_caps)
@@ -135,13 +135,13 @@ class CapsuleLayer(nn.Module):
         batch_size = feature.shape[0]  # B
 
         # Predict capsule and additional params from the input encoding.
-        # [B, O, P]
+        # [B, O, D]
 
         caps_feature_list = feature.unbind(1)  # [(B, F)] * O
         caps_param_list = [self.mlps[i](caps_feature_list[i])
-                           for i in range(self.n_caps)]  # [(B, P)] * O
+                           for i in range(self.n_caps)]  # [(B, D)] * O
         del caps_feature_list
-        raw_caps_param = torch.stack(caps_param_list, 1)  # (B, O, P)
+        raw_caps_param = torch.stack(caps_param_list, 1)  # (B, O, D)
         del caps_param_list
 
         if self.caps_dropout_rate == 0.0:
@@ -151,10 +151,10 @@ class CapsuleLayer(nn.Module):
             caps_exist = pmf.sample((batch_size, self.n_caps, 1))  # (B, O, 1)
         caps_exist = caps_exist.to(device)
 
-        caps_param = torch.cat([raw_caps_param, caps_exist], -1)  # (B, O, P+1)
+        caps_param = torch.cat([raw_caps_param, caps_exist], -1)  # (B, O, D+1)
         del caps_exist
 
-        caps_eparam_list = caps_param.unbind(1)  # [(B, P+1)] * O
+        caps_eparam_list = caps_param.unbind(1)  # [(B, D+1)] * O
         all_param_list = [self.caps_mlps[i](caps_eparam_list[i])
                           for i in range(self.n_caps)]  # [(B, A)] * O
         del caps_eparam_list
@@ -421,7 +421,7 @@ class CapsuleObjectDecoder(nn.Module):
             vote=res.vote,
             scale=res.scale,
             vote_presence_prob=vote_presence_prob,
-            dummy_vote= self.dummy_vote
+            dummy_vote=self.dummy_vote
         )
         likelihood.to(device)
         ll_res = likelihood(x, presence=presence)
