@@ -109,9 +109,10 @@ class CapsuleLayer(nn.Module):
             for _ in range(self.n_caps)
         ])
 
-        self.caps_bias_list = [nn.Parameter(torch.zeros(1, self.n_caps, *shape),
-                                            requires_grad=True)
-                               for shape in self.output_shapes[1:]]
+        self.caps_bias_list = nn.ParameterList([
+            nn.Parameter(torch.zeros(1, self.n_caps, *shape), requires_grad=True)
+            for shape in self.output_shapes[1:]
+        ])
 
         self.cpr_static = nn.Parameter(
             torch.zeros([1, self.n_caps, self.n_votes, self._n_transform_params]),
@@ -385,6 +386,8 @@ class CapsuleObjectDecoder(nn.Module):
         Returns:
           A bunch of stuff.
         """
+        device = next(iter(self.parameters())).device
+
         batch_size, n_caps = h.shape[:2]
         n_votes = x.shape[1]
 
@@ -393,6 +396,7 @@ class CapsuleObjectDecoder(nn.Module):
 
         vote, scale, vote_presence_prob = res.vote, res.scale, res.vote_presence
         likelihood = CapsuleLikelihood(vote, scale, vote_presence_prob)
+        likelihood.to(device)
         ll_res = likelihood(x, presence)
         res.update(ll_res)
 
