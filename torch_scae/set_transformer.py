@@ -115,7 +115,7 @@ class MAB(nn.Module):
         if self.layer_norm:
             h = self.ln0(h)  # (B, N, d)
 
-        h += F.relu(self.fc(h))  # (B, N, d)
+        h = h + F.relu(self.fc(h))  # (B, N, d)
         if self.layer_norm:
             h = self.ln1(h)  # (B, N, d)
 
