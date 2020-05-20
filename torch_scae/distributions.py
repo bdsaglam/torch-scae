@@ -13,8 +13,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Probability Distributions.
-"""
 import torch
 import torch.nn.functional as F
 from torch.distributions import Normal
@@ -22,8 +20,7 @@ from torch.distributions import Normal
 
 class GaussianMixture:
     def __init__(self, normal_dist: Normal, mixing_logits):
-        """Builds the module.
-
+        """
         Args:
           normal_dist: torch normal distribution object
           mixing_logits: tensor [B, K, ...] with K the number of components.
@@ -86,8 +83,8 @@ class GaussianMixture:
         Creates a Gaussian mixture by loc(mean), scale(std) and mixing logits
         with K number of components.
 
-        loc: tensor [B, K, ...] or broadcastable
-        scale: tensor [B, K, ...] or broadcastable
+        loc: tensor [B, K, ...] or broadcast-able
+        scale: tensor [B, K, ...] or broadcast-able
         mixing_logits: tensor [B, K, ...]
         """
         return cls(Normal(loc, scale), mixing_logits)
