@@ -86,7 +86,8 @@ class CapsuleImageEncoder(nn.Module):
 
         presence_logit = presence_logit.squeeze(-1)  # (B, M)
         if self.noise_scale > 0. and self.training:
-            presence_logit += (torch.rand(*presence_logit.shape) - .5) * self.noise_scale
+            noise = (torch.rand(*presence_logit.shape) - .5) * self.noise_scale
+            presence_logit = presence_logit + noise
 
         presence_prob = torch.sigmoid(presence_logit)
         pose = cv_ops.geometric_transform(pose, self.similarity_transform)

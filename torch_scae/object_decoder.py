@@ -164,7 +164,7 @@ class CapsuleLayer(nn.Module):
         ]
 
         if self.caps_dropout_rate > 0.0:
-            pres_logit_per_caps += math_ops.log_safe(caps_exist)
+            pres_logit_per_caps = pres_logit_per_caps + math_ops.log_safe(caps_exist)
 
         def add_noise(tensor):
             """Adds noise to tensors."""
@@ -283,7 +283,7 @@ class CapsuleLikelihood(nn.Module):
 
         if presence is not None:
             presence = presence.float()
-            mixture_log_prob_per_point *= presence
+            mixture_log_prob_per_point = mixture_log_prob_per_point * presence
 
         # (B,)
         mixture_log_prob_per_example = mixture_log_prob_per_point.sum(1)

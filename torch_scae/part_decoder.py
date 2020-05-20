@@ -153,7 +153,7 @@ class TemplateBasedImageDecoder(nn.Module):
         # transform templates
         templates = templates.view(batch_size * n_templates,
                                    *templates.shape[2:])  # (B*M, C, H, W)
-        affine_matrices = pose.view(batch_size * n_templates, 2, 3) # (B*M, 2, 3)
+        affine_matrices = pose.view(batch_size * n_templates, 2, 3)  # (B*M, 2, 3)
         target_size = [
             batch_size * n_templates, n_channels, *self._output_size]
         affine_grids = F.affine_grid(affine_matrices, target_size)
@@ -170,10 +170,6 @@ class TemplateBasedImageDecoder(nn.Module):
 
         transformed_templates = torch.cat([transformed_templates, bg_image],
                                           dim=1)
-
-        if presence is not None:
-            bg_presence = torch.ones([batch_size, 1])
-            presence = torch.cat([presence, bg_presence], dim=1)
 
         if self._use_alpha_channel:
             template_mixing_logits = self.templates_alpha.repeat(
@@ -199,6 +195,8 @@ class TemplateBasedImageDecoder(nn.Module):
             scale = 1
 
         if presence is not None:
+            bg_presence = torch.ones([batch_size, 1])
+            presence = torch.cat([presence, bg_presence], dim=1)
             presence = presence.view(
                 *presence.shape, *([1] * len(template_mixing_logits.shape[2:])))
             template_mixing_logits += math_ops.log_safe(presence)
