@@ -103,30 +103,30 @@ class TemplateBasedImageDecoder(nn.Module):
                  background_value=True):
 
         super().__init__()
-        self._n_templates = n_templates
-        self._template_size = template_size
-        self._output_size = output_size
-        self._learn_output_scale = learn_output_scale
-        self._use_alpha_channel = use_alpha_channel
-        self._background_value = background_value
+        self.n_templates = n_templates
+        self.template_size = template_size
+        self.output_size = output_size
+        self.learn_output_scale = learn_output_scale
+        self.use_alpha_channel = use_alpha_channel
+        self.background_value = background_value
 
         self._build()
 
     def _build(self):
-        if self._use_alpha_channel:
-            shape = (1, self._n_templates, 1, *self._template_size)
+        if self.use_alpha_channel:
+            shape = (1, self.n_templates, 1, *self.template_size)
             self.templates_alpha = nn.Parameter(torch.zeros(*shape),
                                                 requires_grad=True)
         else:
             self.temperature_logit = nn.Parameter(torch.rand(1),
                                                   requires_grad=True)
 
-        if self._learn_output_scale:
+        if self.learn_output_scale:
             self.scale = nn.Parameter(torch.rand(1), requires_grad=True)
 
         self.bg_mixing_logit = nn.Parameter(torch.tensor([0.0]),
                                             requires_grad=True)
-        if self._background_value:
+        if self.background_value:
             self.bg_value = nn.Parameter(torch.tensor([0.0]),
                                          requires_grad=True)
 
@@ -156,7 +156,7 @@ class TemplateBasedImageDecoder(nn.Module):
                                    *templates.shape[2:])  # (B*M, C, H, W)
         affine_matrices = pose.view(batch_size * n_templates, 2, 3)  # (B*M, 2, 3)
         target_size = [
-            batch_size * n_templates, n_channels, *self._output_size]
+            batch_size * n_templates, n_channels, *self.output_size]
         affine_grids = F.affine_grid(affine_matrices, target_size)
         transformed_templates = F.grid_sample(templates, affine_grids)
         transformed_templates = transformed_templates.view(
@@ -172,7 +172,7 @@ class TemplateBasedImageDecoder(nn.Module):
         transformed_templates = torch.cat([transformed_templates, bg_image],
                                           dim=1)
 
-        if self._use_alpha_channel:
+        if self.use_alpha_channel:
             template_mixing_logits = self.templates_alpha.repeat(
                 batch_size, 1, 1, 1, 1)
             template_mixing_logits = template_mixing_logits.view(
@@ -190,7 +190,7 @@ class TemplateBasedImageDecoder(nn.Module):
             temperature = F.softplus(self.temperature_logit + .5) + 1e-4
             template_mixing_logits = transformed_templates / temperature
 
-        if self._learn_output_scale:
+        if self.learn_output_scale:
             scale = F.softplus(self.scale) + 1e-4
         else:
             scale = torch.tensor([1.0], device=device)

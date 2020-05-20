@@ -74,6 +74,7 @@ class CapsuleImageEncoder(nn.Module):
         device = next(iter(self.parameters())).device
 
         batch_size = image.shape[0]  # B
+
         img_embedding = self.encoder(image)  # (B, D, G, G)
 
         h = img_embedding + self.img_embedding_bias.unsqueeze(0)  # (B, D, G, G)

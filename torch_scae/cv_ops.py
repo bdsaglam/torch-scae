@@ -19,7 +19,6 @@
 import math
 
 import torch
-import torch.nn.functional as F
 
 
 def geometric_transform(pose_tensor,

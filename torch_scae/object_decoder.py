@@ -140,7 +140,9 @@ class CapsuleLayer(nn.Module):
         caps_feature_list = feature.unbind(1)  # [(B, F)] * O
         caps_param_list = [self.mlps[i](caps_feature_list[i])
                            for i in range(self.n_caps)]  # [(B, P)] * O
+        del caps_feature_list
         raw_caps_param = torch.stack(caps_param_list, 1)  # (B, O, P)
+        del caps_param_list
 
         if self.caps_dropout_rate == 0.0:
             caps_exist = torch.ones(batch_size, self.n_caps, 1)  # (B, O, 1)
@@ -150,14 +152,19 @@ class CapsuleLayer(nn.Module):
         caps_exist = caps_exist.to(device)
 
         caps_param = torch.cat([raw_caps_param, caps_exist], -1)  # (B, O, P+1)
+        del caps_exist
 
         caps_eparam_list = caps_param.unbind(1)  # [(B, P+1)] * O
         all_param_list = [self.caps_mlps[i](caps_eparam_list[i])
                           for i in range(self.n_caps)]  # [(B, A)] * O
+        del caps_eparam_list
         all_param = torch.stack(all_param_list, 1)  # (B, O, A)
+        del all_param_list
         all_param_split_list = torch.split(all_param, self.splits, -1)
         result = [t.view(batch_size, self.n_caps, *s)
                   for (t, s) in zip(all_param_split_list, self.output_shapes)]
+        del all_param
+        del all_param_split_list
 
         cpr_dynamic = result[0]
 
@@ -166,6 +173,7 @@ class CapsuleLayer(nn.Module):
             t + bias
             for (t, bias) in zip(result[1:], self.caps_bias_list)
         ]
+        del result
 
         if self.caps_dropout_rate > 0.0:
             pres_logit_per_caps = pres_logit_per_caps + math_ops.log_safe(caps_exist)
@@ -205,6 +213,7 @@ class CapsuleLayer(nn.Module):
             pres_per_caps = torch.sigmoid(pres_logit_per_caps)
 
         pres_per_vote = pres_per_caps * torch.sigmoid(pres_logit_per_vote)
+        del pres_per_caps
 
         if self.learn_vote_scale:
             # for numerical stability
@@ -266,6 +275,9 @@ class CapsuleLikelihood(nn.Module):
         expanded_x = x.unsqueeze(1)  # (B, 1, M, P)
         vote_log_prob_per_dim = vote_component_pdf.log_prob(expanded_x)  # (B, O, M, P)
         vote_log_prob = vote_log_prob_per_dim.sum(-1)  # (B, O, M)
+        del vote_log_prob_per_dim
+        del x
+        del expanded_x
 
         # (B, 1, M)
         dummy_vote_log_prob = torch.zeros(
@@ -273,14 +285,14 @@ class CapsuleLikelihood(nn.Module):
 
         # (B, O+1, M)
         vote_log_prob = torch.cat([vote_log_prob, dummy_vote_log_prob], 1)
+        del dummy_vote_log_prob
 
-        mixing_logit = math_ops.log_safe(self.vote_presence_prob)  # (B, O, M)
-
+        #
         dummy_logit = torch.zeros(batch_size, 1, 1, device=device) - 2. * np.log(10.)
         dummy_logit = dummy_logit.repeat(1, 1, n_input_points)  # (B, 1, M)
 
-        # (B, O+1, M)
-        mixing_logit = torch.cat([mixing_logit, dummy_logit], 1)
+        mixing_logit = math_ops.log_safe(self.vote_presence_prob)  # (B, O, M)
+        mixing_logit = torch.cat([mixing_logit, dummy_logit], 1)  # (B, O+1, M)
         mixing_log_prob = mixing_logit - mixing_logit.logsumexp(1, keepdim=True)  # (B, O+1, M)
 
         # (B, M)
@@ -292,12 +304,15 @@ class CapsuleLikelihood(nn.Module):
 
         # (B,)
         mixture_log_prob_per_example = mixture_log_prob_per_point.sum(1)
+        del mixture_log_prob_per_point
 
         # scalar
         mixture_log_prob_per_batch = mixture_log_prob_per_example.mean()
+        del mixture_log_prob_per_example
 
         # (B, O + 1, M)
         posterior_mixing_logits_per_point = mixing_logit + vote_log_prob
+        del vote_log_prob
 
         # [B, M]
         winning_vote_idx = torch.argmax(
@@ -310,49 +325,55 @@ class CapsuleLikelihood(nn.Module):
         point_idx = point_idx.repeat(batch_size, 1)  # (B, M)
 
         idx = torch.stack([batch_idx, winning_vote_idx, point_idx], -1)
+        del batch_idx
+        del point_idx
 
         # (B, M, P)
         winning_vote = self.vote[idx[:, :, 0], idx[:, :, 1], idx[:, :, 2]]
         assert winning_vote.shape == (batch_size, n_input_points, dim_in)
 
         # (B, M)
-        winning_pres = \
+        winning_presence = \
             self.vote_presence_prob[idx[:, :, 0], idx[:, :, 1], idx[:, :, 2]]
-        assert winning_pres.shape == (batch_size, n_input_points)
+        assert winning_presence.shape == (batch_size, n_input_points)
+        del idx
 
         # (B, O, M)
         vote_presence = mixing_logit[:, :-1] > mixing_logit[:, -1:]
 
-        # the first four votes belong to the square
-        is_from_capsule = winning_vote_idx // self.n_votes
-
         # (B, O+1, M)
         posterior_mixing_prob = F.softmax(posterior_mixing_logits_per_point, 1)
+        del posterior_mixing_logits_per_point
 
         dummy_vote = self.dummy_vote.repeat(batch_size, 1, 1, 1)  # (B, 1, M, P)
         dummy_pres = torch.zeros([batch_size, 1, n_input_points], device=device)
 
         votes = torch.cat((self.vote, dummy_vote), 1)  # (B, O+1, M, P)
-        pres = torch.cat([self.vote_presence_prob, dummy_pres], 1)  # (B, O+1, M)
+        presence = torch.cat([self.vote_presence_prob, dummy_pres], 1)  # (B, O+1, M)
+        del dummy_vote
+        del dummy_pres
 
         # (B, M, P)
         soft_winner = torch.sum(posterior_mixing_prob.unsqueeze(-1) * votes, 1)
         assert soft_winner.shape == (batch_size, n_input_points, dim_in)
 
         # (B, M)
-        soft_winner_pres = torch.sum(posterior_mixing_prob * pres, 1)
-        assert soft_winner_pres.shape == (batch_size, n_input_points)
+        soft_winner_presence = torch.sum(posterior_mixing_prob * presence, 1)
+        assert soft_winner_presence.shape == (batch_size, n_input_points)
 
         # (B, M, O)
         posterior_mixing_prob = posterior_mixing_prob[:, :-1].transpose(1, 2)
+
+        # the first four votes belong to the square
+        is_from_capsule = winning_vote_idx // self.n_votes
 
         return AttrDict(
             log_prob=mixture_log_prob_per_batch,
             vote_presence=vote_presence.float(),
             winner=winning_vote,
-            winner_presence=winning_pres,
+            winner_presence=winning_presence,
             soft_winner=soft_winner,
-            soft_winner_presence=soft_winner_pres,
+            soft_winner_presence=soft_winner_presence,
             posterior_mixing_prob=posterior_mixing_prob,
             mixing_log_prob=mixing_log_prob,
             mixing_logit=mixing_logit,
@@ -394,17 +415,17 @@ class CapsuleObjectDecoder(nn.Module):
         res = self.capsule_layer(h)
         res.vote = res.vote[..., :-1, :].view(batch_size, n_caps, n_votes, 6)
 
-        vote, scale, vote_presence_prob = res.vote, res.scale, res.vote_presence
-        likelihood = CapsuleLikelihood(vote, scale, vote_presence_prob)
+        vote_presence_prob = res.vote_presence
+        likelihood = CapsuleLikelihood(res.vote, res.scale, vote_presence_prob)
         likelihood.to(device)
         ll_res = likelihood(x, presence)
         res.update(ll_res)
+        del likelihood
 
-        caps_presence_prob, _ = torch.max(
+        res.caps_presence_prob = torch.max(
             vote_presence_prob.view(batch_size, n_caps, n_votes),
             2
-        )
-        res.caps_presence_prob = caps_presence_prob
+        )[0]
 
         return res
 

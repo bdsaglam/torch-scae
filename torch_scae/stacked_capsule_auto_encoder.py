@@ -74,18 +74,18 @@ class SCAE(nn.Module):
 
         batch_size = image.shape[0]
         part_encoding = self._part_encoder(image)
-        pose = part_encoding.pose
-        presence = part_encoding.presence
 
-        expanded_presence = presence.unsqueeze(-1)
-        input_pose = torch.cat([pose, 1. - expanded_presence], -1)
-        input_presence = presence
+        input_pose = torch.cat(
+            [part_encoding.pose, 1. - part_encoding.presence.unsqueeze(-1)],
+            -1
+        )
+        input_presence = part_encoding.presence
 
         if self._stop_grad_caps_input:
             input_pose = input_pose.detach()
             input_presence = input_presence.detach()
 
-        target_pose, target_presence = pose, presence
+        target_pose, target_presence = part_encoding.pose, part_encoding.presence
         if self._stop_grad_caps_target:
             target_pose = target_pose.detach()
             target_presence = target_presence.detach()
@@ -108,8 +108,16 @@ class SCAE(nn.Module):
         pose_with_templates = torch.cat([input_pose, input_templates], -1)
 
         h = self._obj_encoder(pose_with_templates, input_presence)
+        del input_pose
+        del input_presence
+        del input_templates
+        del pose_with_templates
 
         res = self._obj_decoder(h, target_pose, target_presence)
+        del h
+        del target_pose
+        del target_presence
+
         res.part_presence = part_encoding.presence
 
         if self._vote_type == 'enc':
@@ -145,6 +153,7 @@ class SCAE(nn.Module):
             pose=part_dec_vote,
             presence=part_dec_presence)
 
+        #
         n_obj_caps = res.vote.shape[1]
         tiled_presence = part_encoding.presence.repeat(n_obj_caps, 1)
 
@@ -158,9 +167,13 @@ class SCAE(nn.Module):
             pose=res.vote.view(-1, *res.vote.shape[2:]),
             presence=res.vote_presence.view(
                 -1, *res.vote_presence.shape[2:]) * tiled_presence)
+        del tiled_presence
+        del tiled_feature
+        del tiled_templates
 
+        #
         res.templates = templates
-        res.template_presence = presence
+        res.template_presence = part_encoding.presence
         res.used_templates = part_decoding.transformed_templates
 
         res.rec_mode = part_decoding.pdf.mode()
@@ -180,6 +193,7 @@ class SCAE(nn.Module):
             mass_explained_by_capsule = res.posterior_mixing_prob.sum(1)
             res.posterior_cls_xe, res.posterior_cls_acc = self._classify(
                 mass_explained_by_capsule.detach(), label)
+            del mass_explained_by_capsule
 
             res.prior_cls_xe, res.prior_cls_acc = self._classify(
                 res.caps_presence_prob.detach(), label)
