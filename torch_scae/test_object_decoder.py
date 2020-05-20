@@ -12,7 +12,7 @@ class CapsuleLayerTestCase(unittest.TestCase):
             n_caps=32,
             dim_feature=256,
             n_votes=40,
-            n_caps_params=32,
+            dim_hidden_caps=32,
             hidden_sizes=(128,),
             learn_vote_scale=True,
             deformations=True,
@@ -26,7 +26,7 @@ class CapsuleLayerTestCase(unittest.TestCase):
         O = capsule_layer_config.n_caps
         F = capsule_layer_config.dim_feature
         V = capsule_layer_config.n_votes
-        H = capsule_layer_config.n_caps_params
+        H = capsule_layer_config.dim_hidden_caps
 
         feature = torch.rand(B, O, F)
         parent_transform = None
@@ -72,14 +72,18 @@ class CapsuleLikelihoodTestCase(unittest.TestCase):
         V = 40
         P = 6
 
-        votes = torch.rand(B, O, V, P)
-        scales = torch.rand(B, O, V)
-        vote_presence_probs = torch.rand(B, O, V)
+        vote = torch.rand(B, O, V, P)
+        scale = torch.rand(B, O, V)
+        vote_presence_prob = torch.rand(B, O, V)
+        dummy_vote = torch.rand(1, 1, V, P)
 
         with torch.no_grad():
-            capsule_likelihood = CapsuleLikelihood(votes,
-                                                   scales,
-                                                   vote_presence_probs)
+            capsule_likelihood = CapsuleLikelihood(
+                vote=vote,
+                scale=scale,
+                vote_presence_prob=vote_presence_prob,
+                dummy_vote=dummy_vote
+            )
         part_pose = torch.rand(B, V, P)
         presence = torch.rand(B, V)
 
@@ -123,7 +127,7 @@ class CapsuleObjectDecoderTestCase(unittest.TestCase):
             n_caps=32,
             dim_feature=256,
             n_votes=40,
-            n_caps_params=32,
+            dim_hidden_caps=32,
             hidden_sizes=(128,),
             learn_vote_scale=True,
             deformations=True,
@@ -139,7 +143,7 @@ class CapsuleObjectDecoderTestCase(unittest.TestCase):
         O = capsule_layer_config.n_caps
         D = capsule_layer_config.dim_feature
         V = capsule_layer_config.n_votes
-        H = capsule_layer_config.n_caps_params
+        H = capsule_layer_config.dim_hidden_caps
         P = 6
 
         h = torch.rand(B, O, D)
