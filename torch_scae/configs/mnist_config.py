@@ -3,7 +3,7 @@ from monty.collections import AttrDict
 
 image_shape = (1, 28, 28)
 n_classes = 10
-n_obj_caps = 32
+n_obj_caps = 16
 
 pcae_cnn_encoder = AttrDict(
     input_shape=image_shape,

@@ -26,6 +26,10 @@ def train(scae, optimizer, data_loader, epoch, device=torch.device("cpu")):
         total_loss += loss.cpu().item()
         avg_loss = loss.item() / float(data_loader.batch_size)
 
+        del res
+        del loss
+        torch.cuda.empty_cache()
+
         if i % 100 == 0:
             tqdm.write(
                 f"Epoch: [{epoch}], Batch: [{i + 1}/{n_batch}], train accuracy: {accuracy:.6f}, "
@@ -36,7 +40,6 @@ def train(scae, optimizer, data_loader, epoch, device=torch.device("cpu")):
 if __name__ == '__main__':
     np.random.seed(0)
     torch.manual_seed(0)
-    torch.autograd.set_detect_anomaly(True)
 
     BATCH_SIZE = 32
     EPOCHS = 10
