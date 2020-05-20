@@ -22,9 +22,10 @@ def train(scae, optimizer, data_loader, epoch, device=torch.device("cpu")):
         loss.backward()
         optimizer.step()
 
-        accuracy = res.best_cls_acc.cpu().item()
-        total_loss += loss.cpu().item()
-        avg_loss = loss.item() / float(data_loader.batch_size)
+        loss_value = loss.detach().cpu().item()
+        accuracy = res.best_cls_acc.detach().cpu().item()
+        total_loss += loss_value
+        avg_loss = loss_value / float(data_loader.batch_size)
 
         del res
         del loss
