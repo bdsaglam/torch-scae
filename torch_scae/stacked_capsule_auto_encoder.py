@@ -3,6 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from torch_scae.object_decoder import sparsity_loss
+from torch_scae.probes import ClassificationProbe
 
 
 class SCAE(nn.Module):
@@ -48,12 +49,13 @@ class SCAE(nn.Module):
         self._stop_grad_caps_target = stop_grad_caps_target
 
         if n_classes:
-            self._classifier = nn.Sequential(
-                nn.Linear(obj_decoder.n_obj_capsules, n_classes),
-                nn.Softmax(-1),
-            )
+            self._posterior_cls_probe = ClassificationProbe(
+                obj_decoder.n_obj_capsules, n_classes)
+            self._prior_cls_probe = ClassificationProbe(
+                obj_decoder.n_obj_capsules, n_classes)
         else:
-            self._classifier = None
+            self._posterior_cls_probe = None
+            self._prior_cls_probe = None
 
         self._dynamic_l2_weight = dynamic_l2_weight
         self._caps_ll_weight = caps_ll_weight
@@ -188,15 +190,16 @@ class SCAE(nn.Module):
             res.rec_ll_per_pixel.shape[0], -1).sum(-1).mean()
 
         if label is not None:
-            assert self._classifier is not None
+            assert self._prior_cls_probe is not None
+            assert self._posterior_cls_probe is not None
+
+            res.prior_cls_xe, res.prior_cls_acc = self._prior_cls_probe(
+                res.caps_presence_prob.detach(), label)
 
             mass_explained_by_capsule = res.posterior_mixing_prob.sum(1)
-            res.posterior_cls_xe, res.posterior_cls_acc = self._classify(
+            res.posterior_cls_xe, res.posterior_cls_acc = self._posterior_cls_probe(
                 mass_explained_by_capsule.detach(), label)
             del mass_explained_by_capsule
-
-            res.prior_cls_xe, res.prior_cls_acc = self._classify(
-                res.caps_presence_prob.detach(), label)
 
             res.best_cls_acc = torch.max(res.prior_cls_acc,
                                          res.posterior_cls_acc)
@@ -205,8 +208,8 @@ class SCAE(nn.Module):
 
         return res
 
-    def _classify(self, x, label):  # (B, O), (B, )
-        predicted_prob = self._classifier(x)
+    def _classify(self, model, x, label):  # (B, O), (B, )
+        predicted_prob = model(x)
         xe_loss = F.cross_entropy(input=predicted_prob, target=label)
         accuracy = (torch.argmax(predicted_prob, 1) == label).float().mean()
         return xe_loss, accuracy
