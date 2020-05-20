@@ -28,34 +28,27 @@ class GaussianMixture:
           normal_dist: torch normal distribution object
           mixing_logits: tensor [B, K, ...] with K the number of components.
         """
-        self._dist = normal_dist
-        self._mixing_logits = mixing_logits
+        self.dist = normal_dist
+        self.mixing_logits = mixing_logits
+
+        self.mixing_prob = F.softmax(mixing_logits, 1)
+        self.mixing_log_prob = mixing_logits - torch.logsumexp(mixing_logits,
+                                                               dim=1,
+                                                               keepdim=True)
+        self.mean = torch.sum(self.mixing_prob * self.dist.mean, 1)
 
     @property
     def n_components(self):
-        return self._mixing_logits.shape[1]
-
-    @property
-    def mixing_log_prob(self):
-        return self._mixing_logits - torch.logsumexp(self._mixing_logits,
-                                                     dim=1,
-                                                     keepdim=True)
-
-    @property
-    def mixing_prob(self):
-        return F.softmax(self._mixing_logits, 1)
+        return self.mixing_logits.shape[1]
 
     def log_prob(self, x):
         x = x.unsqueeze(1)
         lp = self._component_log_prob(x)
-        return torch.logsumexp(lp + self.mixing_log_prob, 1)
+        return torch.logsumexp(lp + self.mixing_log_prob(), 1)
 
     def _component_log_prob(self, x):
-        lp = self._dist.log_prob(x)
+        lp = self.dist.log_prob(x)
         return lp
-
-    def mean(self):
-        return torch.sum(self.mixing_prob * self._dist.mean, 1)
 
     def mode(self, straight_through_gradient=False, maximum=False):
         """Mode of the distribution.
@@ -69,14 +62,17 @@ class GaussianMixture:
         Returns:
           Mode.
         """
-        mode_value = self._dist.loc
+        mode_value = self.dist.loc
         mixing_log_prob = self.mixing_log_prob
 
         if maximum:
             mixing_log_prob += self._component_log_prob(mode_value)
 
+        dims = len(mixing_log_prob.shape)
+        dim_order = list(range(dims - 1))
+        dim_order.insert(1, dims - 1)
         mask = F.one_hot(mixing_log_prob.argmax(1),
-                         mixing_log_prob.shape[1]).transpose(1, -1)
+                         mixing_log_prob.shape[1]).permute(*dim_order)
 
         if straight_through_gradient:
             soft_mask = F.softmax(mixing_log_prob, 1)
