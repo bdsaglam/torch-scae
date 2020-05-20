@@ -17,7 +17,7 @@ def MLP(sizes, activation=nn.ReLU, activate_final=True, bias=True):
     return nn.Sequential(*layers)
 
 
-def Conv2dStack(in_channel,
+def Conv2dStack(in_channels,
                 out_channels,
                 kernel_sizes,
                 strides,
@@ -25,7 +25,7 @@ def Conv2dStack(in_channel,
                 activate_final=True):
     assert len(out_channels) == len(kernel_sizes) == len(strides)
 
-    channels = [in_channel] + list(out_channels)
+    channels = [in_channels] + list(out_channels)
     layers = []
     for i in range(len(channels) - 1):
         in_channels = channels[i]

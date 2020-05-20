@@ -31,22 +31,22 @@ class TemplateGeneratorTestCase(unittest.TestCase):
             color_nonlin=color_nonlin,
         )
 
+        batch_size = 4
         with torch.no_grad():
-            batch_size = 4
             if colorize_templates:
                 feature = torch.rand(batch_size, n_templates, dim_feature)
                 res = template_generator(feature)
             else:
                 res = template_generator(batch_size=batch_size)
 
-            self.assertTrue(
-                res.raw_templates.shape == (
-                    1, n_templates, n_channels, *template_size)
-            )
-            self.assertTrue(
-                res.templates.shape == (
-                    batch_size, n_templates, n_channels, *template_size)
-            )
+        self.assertTrue(
+            res.raw_templates.shape == (
+                1, n_templates, n_channels, *template_size)
+        )
+        self.assertTrue(
+            res.templates.shape == (
+                batch_size, n_templates, n_channels, *template_size)
+        )
 
     def test_shape_single_channel_without_color(self):
         self.helper(image_shape=(1, 28, 28),
@@ -94,39 +94,40 @@ class TemplateBasedImageDecoderTestCase(unittest.TestCase):
             background_value=background_value,
         )
 
+        batch_size = 4
+
+        templates = torch.rand(
+            batch_size, n_templates, n_channels, *template_size)
+
+        pose = torch.rand(batch_size, n_templates, 6)
+
+        if presence:
+            presence = torch.rand(batch_size, n_templates)
+        else:
+            presence = None
+
+        if background_image:
+            bg_image = torch.rand(batch_size, n_channels, *output_size)
+        else:
+            bg_image = None
+
         with torch.no_grad():
-            batch_size = 4
-
-            templates = torch.rand(
-                batch_size, n_templates, n_channels, *template_size)
-
-            pose = torch.rand(batch_size, n_templates, 6)
-
-            if presence:
-                presence = torch.rand(batch_size, n_templates)
-            else:
-                presence = None
-
-            if background_image:
-                bg_image = torch.rand(batch_size, n_channels, *output_size)
-            else:
-                bg_image = None
-
             decoding_result = template_decoder(templates=templates,
                                                pose=pose,
                                                presence=presence,
                                                bg_image=bg_image)
-            transformed_templates = decoding_result.transformed_templates
-            mixing_logits = decoding_result.mixing_logits
 
-            self.assertTrue(
-                transformed_templates.shape == (
-                    batch_size, n_templates, n_channels, *output_size)
-            )
-            self.assertTrue(
-                mixing_logits.shape == (
-                    batch_size, n_templates, 1, *output_size)
-            )
+        transformed_templates = decoding_result.transformed_templates
+        mixing_logits = decoding_result.mixing_logits
+
+        self.assertTrue(
+            transformed_templates.shape == (
+                batch_size, n_templates, n_channels, *output_size)
+        )
+        self.assertTrue(
+            mixing_logits.shape == (
+                batch_size, n_templates, 1, *output_size)
+        )
 
     def test_shape_with_color(self):
         self.helper(image_shape=(3, 28, 28))

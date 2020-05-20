@@ -68,54 +68,53 @@ class CapsuleLayer(nn.Module):
         """
         super().__init__()
 
-        self._n_caps = n_caps  # O
-        self._dim_feature = dim_feature  # F
-        self._hidden_sizes = list(hidden_sizes)  # [H_i, ...]
-        self._n_caps_params = n_caps_params  # P
-        self._caps_dropout_rate = caps_dropout_rate
+        self.n_caps = n_caps  # O
+        self.dim_feature = dim_feature  # F
+        self.hidden_sizes = list(hidden_sizes)  # [H_i, ...]
+        self.n_caps_params = n_caps_params  # P
+        self.caps_dropout_rate = caps_dropout_rate
+        self.n_votes = n_votes
+        self.learn_vote_scale = learn_vote_scale
+        self.deformations = deformations
+        self.noise_type = noise_type
+        self.noise_scale = noise_scale
 
-        self._n_votes = n_votes
-        self._learn_vote_scale = learn_vote_scale
-        self._deformations = deformations
-        self._noise_type = noise_type
-        self._noise_scale = noise_scale
-
-        self._similarity_transform = similarity_transform
+        self.similarity_transform = similarity_transform
 
         self._build()
 
     def _build(self):
         # Use separate parameters to do predictions for different capsules.
-        sizes = [self._dim_feature] + self._hidden_sizes + [self._n_caps_params]
+        sizes = [self.dim_feature] + self.hidden_sizes + [self.n_caps_params]
         self.mlps = nn.ModuleList([
             nn_ext.MLP(sizes=sizes)
-            for _ in range(self._n_caps)
+            for _ in range(self.n_caps)
         ])
 
         self.output_shapes = (
-            [self._n_votes, self._n_transform_params],  # CPR_dynamic
+            [self.n_votes, self._n_transform_params],  # CPR_dynamic
             [1, self._n_transform_params],  # CCR
             [1],  # per-capsule presence
-            [self._n_votes],  # per-vote-presence
-            [self._n_votes],  # per-vote scale
+            [self.n_votes],  # per-vote-presence
+            [self.n_votes],  # per-vote scale
         )
         self.splits = [prod(i) for i in self.output_shapes]
         self.n_outputs = sum(self.splits)  # A
 
         # we don't use bias in the output layer in order to separate the static
         # and dynamic parts of the CPR
-        sizes = [self._n_caps_params + 1] + self._hidden_sizes + [self.n_outputs]
+        sizes = [self.n_caps_params + 1] + self.hidden_sizes + [self.n_outputs]
         self.caps_mlps = nn.ModuleList([
             nn_ext.MLP(sizes=sizes, bias=False)
-            for _ in range(self._n_caps)
+            for _ in range(self.n_caps)
         ])
 
-        self.caps_bias_list = [nn.Parameter(torch.zeros(1, self._n_caps, *shape),
+        self.caps_bias_list = [nn.Parameter(torch.zeros(1, self.n_caps, *shape),
                                             requires_grad=True)
                                for shape in self.output_shapes[1:]]
 
         self.cpr_static = nn.Parameter(
-            torch.zeros([1, self._n_caps, self._n_votes, self._n_transform_params]),
+            torch.zeros([1, self.n_caps, self.n_votes, self._n_transform_params]),
             requires_grad=True
         )
 
@@ -137,23 +136,23 @@ class CapsuleLayer(nn.Module):
 
         caps_feature_list = feature.unbind(1)  # [(B, F)] * O
         caps_param_list = [self.mlps[i](caps_feature_list[i])
-                           for i in range(self._n_caps)]  # [(B, P)] * O
+                           for i in range(self.n_caps)]  # [(B, P)] * O
         raw_caps_param = torch.stack(caps_param_list, 1)  # (B, O, P)
 
-        if self._caps_dropout_rate == 0.0:
-            caps_exist = torch.ones(batch_size, self._n_caps, 1)  # (B, O, 1)
+        if self.caps_dropout_rate == 0.0:
+            caps_exist = torch.ones(batch_size, self.n_caps, 1)  # (B, O, 1)
         else:
-            pmf = Bernoulli(1. - self._caps_dropout_rate)
-            caps_exist = pmf.sample((batch_size, self._n_caps, 1))  # (B, O, 1)
+            pmf = Bernoulli(1. - self.caps_dropout_rate)
+            caps_exist = pmf.sample((batch_size, self.n_caps, 1))  # (B, O, 1)
 
         caps_param = torch.cat([raw_caps_param, caps_exist], -1)  # (B, O, P+1)
 
         caps_eparam_list = caps_param.unbind(1)  # [(B, P+1)] * O
         all_param_list = [self.caps_mlps[i](caps_eparam_list[i])
-                          for i in range(self._n_caps)]  # [(B, A)] * O
+                          for i in range(self.n_caps)]  # [(B, A)] * O
         all_param = torch.stack(all_param_list, 1)  # (B, O, A)
         all_param_split_list = torch.split(all_param, self.splits, -1)
-        result = [t.view(batch_size, self._n_caps, *s)
+        result = [t.view(batch_size, self.n_caps, *s)
                   for (t, s) in zip(all_param_split_list, self.output_shapes)]
 
         cpr_dynamic = result[0]
@@ -164,20 +163,20 @@ class CapsuleLayer(nn.Module):
             for (t, bias) in zip(result[1:], self.caps_bias_list)
         ]
 
-        if self._caps_dropout_rate > 0.0:
+        if self.caps_dropout_rate > 0.0:
             pres_logit_per_caps += math_ops.log_safe(caps_exist)
 
         def add_noise(tensor):
             """Adds noise to tensors."""
-            if self._noise_type == 'uniform':
-                noise = (torch.rand(tensor.shape) - 0.5) * self._noise_scale
-            elif self._noise_type == 'logistic':
-                pdf = LogisticNormal(0., self._noise_scale)
+            if self.noise_type == 'uniform':
+                noise = (torch.rand(tensor.shape) - 0.5) * self.noise_scale
+            elif self.noise_type == 'logistic':
+                pdf = LogisticNormal(0., self.noise_scale)
                 noise = pdf.sample(tensor.shape)
-            elif not self._noise_type:
+            elif not self.noise_type:
                 noise = 0.
             else:
-                raise ValueError(f'Invalid noise type: {self._noise_type}')
+                raise ValueError(f'Invalid noise type: {self.noise_type}')
             return tensor + noise
 
         pres_logit_per_caps = add_noise(pres_logit_per_caps)
@@ -189,11 +188,11 @@ class CapsuleLayer(nn.Module):
         else:
             ccr = parent_transform
 
-        if not self._deformations:
+        if not self.deformations:
             cpr_dynamic = torch.zeros_like(cpr_dynamic)
 
         cpr = self._make_transform(cpr_dynamic + self.cpr_static)
-        ccr_per_vote = ccr.repeat(1, 1, self._n_votes, 1, 1)
+        ccr_per_vote = ccr.repeat(1, 1, self.n_votes, 1, 1)
         votes = torch.matmul(ccr_per_vote, cpr)
 
         if parent_presence is not None:
@@ -203,7 +202,7 @@ class CapsuleLayer(nn.Module):
 
         pres_per_vote = pres_per_caps * torch.sigmoid(pres_logit_per_vote)
 
-        if self._learn_vote_scale:
+        if self.learn_vote_scale:
             # for numerical stability
             scale_per_vote = F.softplus(scale_per_vote + .5) + 1e-2
         else:
@@ -221,7 +220,7 @@ class CapsuleLayer(nn.Module):
         )
 
     def _make_transform(self, params):
-        return cv_ops.geometric_transform(params, self._similarity_transform,
+        return cv_ops.geometric_transform(params, self.similarity_transform,
                                           nonlinear=True, as_matrix=True)
 
 
@@ -230,11 +229,11 @@ class CapsuleLikelihood(nn.Module):
 
     def __init__(self, vote, scale, vote_presence_prob):
         super().__init__()
-        self._n_votes = 1
-        self._n_caps = int(vote.shape[1])  # O
-        self._vote = vote  # (B, O, M, P)
-        self._scale = scale  # (B, O, M)
-        self._vote_presence_prob = vote_presence_prob  # (B, O, M)
+        self.n_votes = 1
+        self.n_caps = vote.shape[1]  # O
+        self.vote = vote  # (B, O, M, P)
+        self.scale = scale  # (B, O, M)
+        self.vote_presence_prob = vote_presence_prob  # (B, O, M)
 
         self.dummy_vote = nn.Parameter(
             torch.zeros(1, 1, *vote.shape[2:]),
@@ -254,8 +253,8 @@ class CapsuleLikelihood(nn.Module):
         batch_size, n_input_points, dim_in = x.shape  # B, M, P
 
         # since scale is a per-caps scalar and we have one vote per capsule
-        vote_component_pdf = self._get_pdf(self._vote,
-                                           self._scale.unsqueeze(-1))
+        vote_component_pdf = self._get_pdf(self.vote,
+                                           self.scale.unsqueeze(-1))
 
         # expand input along caps dimensions
         expanded_x = x.unsqueeze(1)  # (B, 1, M, P)
@@ -269,7 +268,7 @@ class CapsuleLikelihood(nn.Module):
         # (B, O+1, M)
         vote_log_prob = torch.cat([vote_log_prob, dummy_vote_log_prob], 1)
 
-        mixing_logit = math_ops.log_safe(self._vote_presence_prob)  # (B, O, M)
+        mixing_logit = math_ops.log_safe(self.vote_presence_prob)  # (B, O, M)
 
         dummy_logit = torch.zeros(batch_size, 1, 1) - 2. * np.log(10.)
         dummy_logit = dummy_logit.repeat(1, 1, n_input_points)  # (B, 1, M)
@@ -308,19 +307,19 @@ class CapsuleLikelihood(nn.Module):
         idx = torch.stack([batch_idx, winning_vote_idx, point_idx], -1)
 
         # (B, M, P)
-        winning_vote = self._vote[idx[:, :, 0], idx[:, :, 1], idx[:, :, 2]]
+        winning_vote = self.vote[idx[:, :, 0], idx[:, :, 1], idx[:, :, 2]]
         assert winning_vote.shape == (batch_size, n_input_points, dim_in)
 
         # (B, M)
         winning_pres = \
-            self._vote_presence_prob[idx[:, :, 0], idx[:, :, 1], idx[:, :, 2]]
+            self.vote_presence_prob[idx[:, :, 0], idx[:, :, 1], idx[:, :, 2]]
         assert winning_pres.shape == (batch_size, n_input_points)
 
         # (B, O, M)
         vote_presence = mixing_logit[:, :-1] > mixing_logit[:, -1:]
 
         # the first four votes belong to the square
-        is_from_capsule = winning_vote_idx // self._n_votes
+        is_from_capsule = winning_vote_idx // self.n_votes
 
         # (B, O+1, M)
         posterior_mixing_prob = F.softmax(posterior_mixing_logits_per_point, 1)
@@ -328,8 +327,8 @@ class CapsuleLikelihood(nn.Module):
         dummy_vote = self.dummy_vote.repeat(batch_size, 1, 1, 1)  # (B, 1, M, P)
         dummy_pres = torch.zeros([batch_size, 1, n_input_points])
 
-        votes = torch.cat((self._vote, dummy_vote), 1)  # (B, O+1, M, P)
-        pres = torch.cat([self._vote_presence_prob, dummy_pres], 1)  # (B, O+1, M)
+        votes = torch.cat((self.vote, dummy_vote), 1)  # (B, O+1, M, P)
+        pres = torch.cat([self.vote_presence_prob, dummy_pres], 1)  # (B, O+1, M)
 
         # (B, M, P)
         soft_winner = torch.sum(posterior_mixing_prob.unsqueeze(-1) * votes, 1)
@@ -339,7 +338,7 @@ class CapsuleLikelihood(nn.Module):
         soft_winner_pres = torch.sum(posterior_mixing_prob * pres, 1)
         assert soft_winner_pres.shape == (batch_size, n_input_points)
 
-        # (B, M, O+1)
+        # (B, M, O)
         posterior_mixing_prob = posterior_mixing_prob[:, :-1].transpose(1, 2)
 
         return AttrDict(
@@ -371,6 +370,52 @@ def capsule_entropy(caps_presence_prob, k=1, **unused_kwargs):
     between_example = math_ops.cross_entropy_safe(between_prob,
                                                   between_prob * k)  # scalar
     return within_example, between_example
+
+
+class CapsuleObjectDecoder(nn.Module):
+    def __init__(self, capsule_layer):
+        """Builds the module.
+
+        Args:
+          capsule_layer: a capsule layer.
+        """
+        super().__init__()
+        self.capsule_layer = capsule_layer
+
+    @property
+    def n_obj_capsules(self):
+        return self.capsule_layer.n_caps
+
+    def forward(self, h, x, presence=None):
+        """Builds the module.
+
+        Args:
+          h: Tensor of object encodings of shape [B, O, D].
+          x: Tensor of inputs of shape [B, V, P]
+          presence: Tensor of shape [B, V] or None; if it exists, it
+            indicates which input points exist.
+
+        Returns:
+          A bunch of stuff.
+        """
+        batch_size, n_caps = h.shape[:2]
+        n_votes = x.shape[1]
+
+        res = self.capsule_layer(h)
+        res.vote = res.vote[..., :-1, :].view(batch_size, n_caps, n_votes, 6)
+
+        vote, scale, vote_presence_prob = res.vote, res.scale, res.vote_presence
+        likelihood = CapsuleLikelihood(vote, scale, vote_presence_prob)
+        ll_res = likelihood(x, presence)
+        res.update(ll_res)
+
+        caps_presence_prob, _ = torch.max(
+            vote_presence_prob.view(batch_size, n_caps, n_votes),
+            2
+        )
+        res.caps_presence_prob = caps_presence_prob
+
+        return res
 
 
 # kl(aggregated_prob||uniform)
@@ -421,45 +466,3 @@ def sparsity_loss(loss_type, *args, **kwargs):
             'Invalid sparsity loss: "{}"'.format(loss_type))
 
     return sparsity_func(*args, **kwargs)
-
-
-class CapsuleObjectDecoder(nn.Module):
-    def __init__(self, capsule_layer):
-        """Builds the module.
-
-        Args:
-          capsule_layer: a capsule layer.
-        """
-        super().__init__()
-        self.capsule = capsule_layer
-
-    def forward(self, h, x, presence=None):
-        """Builds the module.
-
-        Args:
-          h: Tensor of object encodings of shape [B, O, D].
-          x: Tensor of inputs of shape [B, V, P]
-          presence: Tensor of shape [B, V] or None; if it exists, it
-            indicates which input points exist.
-
-        Returns:
-          A bunch of stuff.
-        """
-        batch_size, n_caps = h.shape[:2]
-        n_votes = x.shape[1]
-
-        res = self.capsule(h)
-        res.vote = res.vote[..., :-1, :].view(batch_size, n_caps, n_votes, 6)
-
-        vote, scale, vote_presence_prob = res.vote, res.scale, res.vote_presence
-        likelihood = CapsuleLikelihood(vote, scale, vote_presence_prob)
-        ll_res = likelihood(x, presence)
-        res.update(ll_res)
-
-        caps_presence_prob, _ = torch.max(
-            vote_presence_prob.view(batch_size, n_caps, n_votes),
-            2
-        )
-
-        res.caps_presence_prob = caps_presence_prob
-        return res

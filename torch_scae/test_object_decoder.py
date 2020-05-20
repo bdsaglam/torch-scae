@@ -33,9 +33,11 @@ class CapsuleLayerTestCase(unittest.TestCase):
         parent_presence = None
 
         capsule_layer = CapsuleLayer(**capsule_layer_config)
-        result = capsule_layer(feature,
-                               parent_presence=parent_presence,
-                               parent_transform=parent_transform)
+
+        with torch.no_grad():
+            result = capsule_layer(feature,
+                                   parent_presence=parent_presence,
+                                   parent_transform=parent_transform)
 
         self.assertTrue(
             result.vote.shape == (B, O, V, 3, 3)
@@ -74,9 +76,10 @@ class CapsuleLikelihoodTestCase(unittest.TestCase):
         scales = torch.rand(B, O, V)
         vote_presence_probs = torch.rand(B, O, V)
 
-        capsule_likelihood = CapsuleLikelihood(votes,
-                                               scales,
-                                               vote_presence_probs)
+        with torch.no_grad():
+            capsule_likelihood = CapsuleLikelihood(votes,
+                                                   scales,
+                                                   vote_presence_probs)
         part_pose = torch.rand(B, V, P)
         presence = torch.rand(B, V)
 
@@ -143,7 +146,8 @@ class CapsuleObjectDecoderTestCase(unittest.TestCase):
         x = torch.rand(B, V, P)
         presence = torch.rand(B, V)
 
-        result = capsule_obj_decoder(h, x, presence)
+        with torch.no_grad():
+            result = capsule_obj_decoder(h, x, presence)
 
         self.assertTrue(
             result.vote.shape == (B, O, V, P)
@@ -202,8 +206,6 @@ class CapsuleObjectDecoderTestCase(unittest.TestCase):
         self.assertTrue(
             result.caps_presence_prob.shape == (B, O)
         )
-
-
 
 
 if __name__ == '__main__':

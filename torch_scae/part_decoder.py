@@ -23,36 +23,36 @@ class TemplateGenerator(nn.Module):
                  color_nonlin=relu1):
 
         super().__init__()
-        self._n_templates = n_templates
-        self._template_size = template_size
-        self._n_channels = n_channels
-        self._template_nonlin = template_nonlin
-        self._dim_feature = dim_feature
-        self._colorize_templates = colorize_templates
-        self._color_nonlin = color_nonlin
+        self.n_templates = n_templates
+        self.template_size = template_size
+        self.n_channels = n_channels
+        self.template_nonlin = template_nonlin
+        self.dim_feature = dim_feature
+        self.colorize_templates = colorize_templates
+        self.color_nonlin = color_nonlin
 
         self._build()
 
     def _build(self):
         # create templates
         template_shape = (
-            1, self._n_templates, self._n_channels, *self._template_size
+            1, self.n_templates, self.n_channels, *self.template_size
         )
 
         # make each templates orthogonal to each other at init
         n_elems = prod(template_shape[2:])  # height, width and channel
-        n = max(self._n_templates, n_elems)
+        n = max(self.n_templates, n_elems)
         q = np.random.uniform(size=[n, n])
         q = np.linalg.qr(q)[0]
-        q = q[:self._n_templates, :n_elems].reshape(template_shape)
+        q = q[:self.n_templates, :n_elems].reshape(template_shape)
         q = q.astype(np.float32)
         q = (q - q.min()) / (q.max() - q.min())
         self.template_logits = nn.Parameter(torch.from_numpy(q),
                                             requires_grad=True)
 
-        if self._colorize_templates:
+        if self.colorize_templates:
             self.templates_color_mlp = MLP(
-                sizes=[self._dim_feature, 32, self._n_channels])
+                sizes=[self.dim_feature, 32, self.n_channels])
 
     def forward(self, feature=None, batch_size=None):
         """Builds the module.
@@ -67,16 +67,16 @@ class TemplateGenerator(nn.Module):
         if feature is not None:
             batch_size = feature.shape[0]
 
-        raw_templates = self._template_nonlin(self.template_logits)
+        raw_templates = self.template_nonlin(self.template_logits)
 
-        if self._colorize_templates and feature is not None:
+        if self.colorize_templates and feature is not None:
             n_templates = feature.shape[1]
             template_color = self.templates_color_mlp(
                 feature.view(batch_size * n_templates, -1)
             )  # (BxM, C)
-            if self._color_nonlin == relu1:
+            if self.color_nonlin == relu1:
                 template_color += .99
-            template_color = self._color_nonlin(template_color)
+            template_color = self.color_nonlin(template_color)
             template_color = template_color.view(
                 batch_size, n_templates, template_color.shape[1]
             )  # (B, M, C)

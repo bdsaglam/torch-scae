@@ -1,4 +1,3 @@
-import collections
 from typing import Tuple
 
 import torch
@@ -19,7 +18,7 @@ class CNNEncoder(nn.Module):
                  activation=nn.ReLU,
                  activate_final=True):
         super().__init__()
-        self.network = Conv2dStack(in_channel=input_shape[0],
+        self.network = Conv2dStack(in_channels=input_shape[0],
                                    out_channels=out_channels,
                                    kernel_sizes=kernel_sizes,
                                    strides=strides,
@@ -32,12 +31,6 @@ class CNNEncoder(nn.Module):
 
 
 class CapsuleImageEncoder(nn.Module):
-    """Primary capsule for images."""
-    Result = collections.namedtuple(
-        'CapsuleImageEncoderResult',
-        ['pose', 'feature', 'presence', 'presence_logit', 'img_embedding']
-    )
-
     def __init__(self,
                  input_shape: Tuple[int, int, int],
                  encoder: CNNEncoder,
@@ -50,48 +43,55 @@ class CapsuleImageEncoder(nn.Module):
 
         super().__init__()
         self.input_shape = input_shape
-        self._encoder = encoder
-        self._n_caps = n_caps  # M
-        self._n_poses = n_poses  # P
-        self._n_special_features = n_special_features  # S
-        self._noise_scale = noise_scale
-        self._similarity_transform = similarity_transform
+        self.encoder = encoder
+        self.n_caps = n_caps  # M
+        self.n_poses = n_poses  # P
+        self.n_special_features = n_special_features  # S
+        self.noise_scale = noise_scale
+        self.similarity_transform = similarity_transform
 
         self._build()
 
+        self.output_shapes = AttrDict(
+            pose=(n_caps, n_poses),
+            presence=(n_caps,),
+            presence_logits=(n_caps,),
+            feature=(n_caps, n_special_features),
+        )
+
     def _build(self):
         self.img_embedding_bias = nn.Parameter(
-            data=torch.zeros(self._encoder.output_shape, dtype=torch.float32),
+            data=torch.zeros(self.encoder.output_shape, dtype=torch.float32),
             requires_grad=True
         )
-        in_channels = self._encoder.output_shape[0]
-        self.caps_dim_splits = [self._n_poses, 1, self._n_special_features]  # 1 for presence
+        in_channels = self.encoder.output_shape[0]
+        self.caps_dim_splits = [self.n_poses, 1, self.n_special_features]  # 1 for presence
         self.n_total_caps_dims = sum(self.caps_dim_splits)
-        out_channels = self._n_caps * (self.n_total_caps_dims + 1)  # 1 for attention
+        out_channels = self.n_caps * (self.n_total_caps_dims + 1)  # 1 for attention
         self.att_conv = nn.Conv2d(in_channels, out_channels, kernel_size=1, stride=1)
 
     def forward(self, image):  # (B, C, H, H)
         batch_size = image.shape[0]  # B
-        img_embedding = self._encoder(image)  # (B, D, G, G)
+        img_embedding = self.encoder(image)  # (B, D, G, G)
 
         h = img_embedding + self.img_embedding_bias.unsqueeze(0)  # (B, D, G, G)
         h = self.att_conv(h)  # (B, M * (P + S + 1 + 1), G, G)
-        h = multiple_attention_pooling_2d(h, self._n_caps)  # (B, M * (P + S + 1), 1, 1)
-        h = h.view(batch_size, self._n_caps, self.n_total_caps_dims)  # (B, M, (P + S + 1))
+        h = multiple_attention_pooling_2d(h, self.n_caps)  # (B, M * (P + S + 1), 1, 1)
+        h = h.view(batch_size, self.n_caps, self.n_total_caps_dims)  # (B, M, (P + S + 1))
 
         # (B, M, P), (B, M, 1), (B, M, S)
         pose, presence_logit, special_feature = torch.split(h, self.caps_dim_splits, -1)
-        if self._n_special_features == 0:
+        if self.n_special_features == 0:
             special_feature = None
 
         presence_logit = presence_logit.squeeze(-1)  # (B, M)
-        if self._noise_scale > 0. and self.training:
-            presence_logit += (torch.rand(*presence_logit.shape) - .5) * self._noise_scale
+        if self.noise_scale > 0. and self.training:
+            presence_logit += (torch.rand(*presence_logit.shape) - .5) * self.noise_scale
 
         presence_prob = torch.sigmoid(presence_logit)
-        pose = cv_ops.geometric_transform(pose, self._similarity_transform)
+        pose = cv_ops.geometric_transform(pose, self.similarity_transform)
         return AttrDict(pose=pose,
-                        feature=special_feature,
                         presence=presence_prob,
                         presence_logit=presence_logit,
+                        feature=special_feature,
                         img_embedding=img_embedding)

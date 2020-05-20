@@ -35,8 +35,9 @@ class SetTransformerTestCase(unittest.TestCase):
         v = torch.rand(B, M, d_v)
         presence = torch.rand(B, M)
 
-        mhqkv = MultiHeadQKVAttention(d_k=d_k, d_v=d_v, n_heads=n_heads)
-        out = mhqkv(q, k, v, presence)
+        with torch.no_grad():
+            mhqkv = MultiHeadQKVAttention(d_k=d_k, d_v=d_v, n_heads=n_heads)
+            out = mhqkv(q, k, v, presence)
 
         self.assertTrue(out.shape == (B, N, d_v))
 
@@ -51,8 +52,9 @@ class SetTransformerTestCase(unittest.TestCase):
         k = torch.rand(B, M, d)
         presence = torch.rand(B, M)
 
-        mab = MAB(d=d, n_heads=n_heads, layer_norm=False)
-        out = mab(q, k, presence)
+        with torch.no_grad():
+            mab = MAB(d=d, n_heads=n_heads, layer_norm=False)
+            out = mab(q, k, presence)
 
         self.assertTrue(out.shape == (B, N, d))
 
@@ -67,8 +69,9 @@ class SetTransformerTestCase(unittest.TestCase):
         k = torch.rand(B, M, d)
         presence = torch.rand(B, M)
 
-        mab = MAB(d=d, n_heads=n_heads, layer_norm=True)
-        out = mab(q, k, presence)
+        with torch.no_grad():
+            mab = MAB(d=d, n_heads=n_heads, layer_norm=True)
+            out = mab(q, k, presence)
 
         self.assertTrue(out.shape == (B, N, d))
 
@@ -81,8 +84,9 @@ class SetTransformerTestCase(unittest.TestCase):
         x = torch.rand(B, N, d)
         presence = torch.rand(B, N)
 
-        sab = SAB(d=d, n_heads=n_heads, layer_norm=True)
-        out = sab(x, presence)
+        with torch.no_grad():
+            sab = SAB(d=d, n_heads=n_heads, layer_norm=True)
+            out = sab(x, presence)
 
         self.assertTrue(out.shape == (B, N, d))
 
@@ -96,9 +100,10 @@ class SetTransformerTestCase(unittest.TestCase):
         x = torch.rand(B, N, d)
         presence = torch.rand(B, N)
 
-        isab = ISAB(d=d, n_heads=n_heads, n_inducing_points=n_inducing_points,
-                    layer_norm=True)
-        out = isab(x, presence)
+        with torch.no_grad():
+            isab = ISAB(d=d, n_heads=n_heads, n_inducing_points=n_inducing_points,
+                        layer_norm=True)
+            out = isab(x, presence)
 
         self.assertTrue(out.shape == (B, N, d))
 
@@ -112,8 +117,9 @@ class SetTransformerTestCase(unittest.TestCase):
         x = torch.rand(B, N, d)
         presence = torch.rand(B, N)
 
-        pma = PMA(d=d, n_heads=n_heads, n_seeds=n_seeds, layer_norm=True)
-        out = pma(x, presence)
+        with torch.no_grad():
+            pma = PMA(d=d, n_heads=n_heads, n_seeds=n_seeds, layer_norm=True)
+            out = pma(x, presence)
 
         self.assertTrue(out.shape == (B, N, d))
 
@@ -131,16 +137,17 @@ class SetTransformerTestCase(unittest.TestCase):
         x = torch.rand(B, N, dim_in)
         presence = torch.rand(B, N)
 
-        st = SetTransformer(
-            dim_in,
-            dim_hidden,
-            dim_out,
-            n_outputs,
-            n_layers,
-            n_heads,
-            layer_norm=True,
-        )
-        out = st(x, presence)
+        with torch.no_grad():
+            st = SetTransformer(
+                dim_in,
+                dim_hidden,
+                dim_out,
+                n_outputs,
+                n_layers,
+                n_heads,
+                layer_norm=True,
+            )
+            out = st(x, presence)
 
         self.assertTrue(out.shape == (B, n_outputs, dim_out))
 
@@ -158,17 +165,18 @@ class SetTransformerTestCase(unittest.TestCase):
         x = torch.rand(B, N, dim_in)
         presence = torch.rand(B, N)
 
-        st = SetTransformer(
-            dim_in,
-            dim_hidden,
-            dim_out,
-            n_outputs,
-            n_layers,
-            n_heads,
-            layer_norm=True,
-            n_inducing_points=20
-        )
-        out = st(x, presence)
+        with torch.no_grad():
+            st = SetTransformer(
+                dim_in,
+                dim_hidden,
+                dim_out,
+                n_outputs,
+                n_layers,
+                n_heads,
+                layer_norm=True,
+                n_inducing_points=20
+            )
+            out = st(x, presence)
 
         self.assertTrue(out.shape == (B, n_outputs, dim_out))
 

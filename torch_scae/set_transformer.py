@@ -45,7 +45,7 @@ class MultiHeadQKVAttention(nn.Module):
         super().__init__()
         self.d_k = d_k
         self.d_v = d_v
-        self._n_heads = n_heads
+        self.n_heads = n_heads
 
         self.d_k_s = int(math.ceil(d_k / n_heads))
         self.d_v_s = int(math.ceil(d_v / n_heads))
@@ -90,7 +90,7 @@ class MultiHeadQKVAttention(nn.Module):
         v = torch.cat(v_s, 0)  # (H*B, M, d_v_s)
 
         if presence is not None:
-            presence = presence.repeat(self._n_heads, 1)
+            presence = presence.repeat(self.n_heads, 1)
         o = qkv_attention(q, k, v, presence)  # (H*B, N, d_v_s)
         o = o.split(batch_size, 0)  # [(B, N, d_v_s)] * H
         o = torch.cat(o, -1)  # (B, N, d_v_p)

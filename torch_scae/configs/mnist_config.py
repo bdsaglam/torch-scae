@@ -43,7 +43,11 @@ pcae_decoder = AttrDict(
 ocae_encoder_set_transformer = AttrDict(
     n_layers=3,
     n_heads=1,
-    dim_in=pcae_template_generator.dim_feature,
+    dim_in=(
+            pcae_encoder.n_poses + pcae_template_generator.dim_feature  + 1 \
+            + pcae_template_generator.n_channels * pcae_template_generator.template_size[0] *
+            pcae_template_generator.template_size[1]
+    ),
     dim_hidden=16,
     dim_out=256,
     n_outputs=n_obj_caps,

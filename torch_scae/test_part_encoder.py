@@ -13,13 +13,15 @@ class CapsuleImageEncoderTestCase(unittest.TestCase):
             **config.pcae_cnn_encoder
         )
 
+        batch_size = 4
+        image = torch.rand(batch_size, *config.image_shape)
+
         with torch.no_grad():
-            batch_size = 4
-            image = torch.rand(batch_size, *config.image_shape)
             out = cnn_encoder(image)
-            self.assertTrue(
-                list(out.shape) == [batch_size] + list(cnn_encoder.output_shape)
-            )
+
+        self.assertTrue(
+            list(out.shape) == [batch_size] + list(cnn_encoder.output_shape)
+        )
 
     def test_pcae_primary_capsule(self):
         config = mnist_config
@@ -34,26 +36,27 @@ class CapsuleImageEncoderTestCase(unittest.TestCase):
         n_caps = config.pcae_encoder.n_caps
         n_poses = config.pcae_encoder.n_poses
         n_special_features = config.pcae_encoder.n_special_features
+        batch_size = 4
+        image = torch.rand(batch_size, *config.image_shape)
+
         with torch.no_grad():
-            batch_size = 4
-            image = torch.rand(batch_size, *config.image_shape)
             result = capsule_image_encoder(image)
 
-            self.assertTrue(
-                tuple(result.pose.shape) == (batch_size, n_caps, n_poses)
-            )
-            self.assertTrue(
-                tuple(result.feature.shape) == (batch_size, n_caps, n_special_features)
-            )
-            self.assertTrue(
-                tuple(result.presence.shape) == (batch_size, n_caps)
-            )
-            self.assertTrue(
-                tuple(result.presence_logit.shape) == (batch_size, n_caps)
-            )
-            self.assertTrue(
-                list(result.img_embedding.shape) == [batch_size] + list(cnn_encoder.output_shape)
-            )
+        self.assertTrue(
+            tuple(result.pose.shape) == (batch_size, n_caps, n_poses)
+        )
+        self.assertTrue(
+            tuple(result.feature.shape) == (batch_size, n_caps, n_special_features)
+        )
+        self.assertTrue(
+            tuple(result.presence.shape) == (batch_size, n_caps)
+        )
+        self.assertTrue(
+            tuple(result.presence_logit.shape) == (batch_size, n_caps)
+        )
+        self.assertTrue(
+            list(result.img_embedding.shape) == [batch_size] + list(cnn_encoder.output_shape)
+        )
 
 
 if __name__ == '__main__':
