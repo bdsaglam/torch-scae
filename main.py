@@ -38,6 +38,35 @@ def train(scae, optimizer, data_loader, epoch, device=torch.device("cpu")):
             )
 
 
+def evaluate(scae, data_loader, epoch, device=torch.device("cpu")):
+    scae.to(device)
+    scae.eval()
+
+    n_batch = np.ceil(len(data_loader.dataset) / data_loader.batch_size)
+    total_loss = 0
+    for i, (image, label) in enumerate(tqdm(data_loader)):
+        image, label = image.to(device), label.to(device)
+
+        with torch.no_grad():
+            res = scae(image=image, label=label)
+            loss = scae.loss(res)
+
+        loss_value = loss.detach().cpu().item()
+        accuracy = res.best_cls_acc.detach().cpu().item()
+        total_loss += loss_value
+        avg_loss = loss_value / float(data_loader.batch_size)
+
+        del res
+        del loss
+        torch.cuda.empty_cache()
+
+        if i % 100 == 0:
+            tqdm.write(
+                f"Epoch: [{epoch}], Batch: [{i + 1}/{n_batch}], train accuracy: {accuracy:.6f}, "
+                f"loss: {avg_loss:.6f}"
+            )
+
+
 if __name__ == '__main__':
     np.random.seed(0)
     torch.manual_seed(0)
@@ -71,3 +100,4 @@ if __name__ == '__main__':
 
     for e in range(1, 1 + EPOCHS):
         train(scae, optimizer, train_loader, e, device=DEVICE)
+        evaluate(scae, val_loader, e, device=DEVICE)
