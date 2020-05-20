@@ -158,7 +158,8 @@ class TemplateBasedImageDecoder(nn.Module):
         target_size = [
             batch_size * n_templates, n_channels, *self.output_size]
         affine_grids = F.affine_grid(affine_matrices, target_size)
-        transformed_templates = F.grid_sample(templates, affine_grids)
+        transformed_templates = F.grid_sample(
+            templates, affine_grids, align_corners=False)
         transformed_templates = transformed_templates.view(
             batch_size, n_templates, *target_size[1:])
 
@@ -177,8 +178,8 @@ class TemplateBasedImageDecoder(nn.Module):
                 batch_size, 1, 1, 1, 1)
             template_mixing_logits = template_mixing_logits.view(
                 batch_size * n_templates, *template_mixing_logits.shape[2:])
-            template_mixing_logits = F.grid_sample(template_mixing_logits,
-                                                   affine_grids)
+            template_mixing_logits = F.grid_sample(
+                template_mixing_logits, affine_grids, align_corners=False)
             template_mixing_logits = template_mixing_logits.view(
                 batch_size, n_templates, *template_mixing_logits.shape[1:])
 
