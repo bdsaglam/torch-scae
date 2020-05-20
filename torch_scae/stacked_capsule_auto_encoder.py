@@ -221,7 +221,6 @@ class SCAE(nn.Module):
                 + self._posterior_between_example_sparsity_weight * res.posterior_between_sparsity_loss
                 + self._prior_within_example_sparsity_weight * res.prior_within_sparsity_loss
                 + self._prior_between_example_sparsity_weight * res.prior_between_sparsity_loss
-                + self._weight_decay * res.weight_decay_loss
         )
 
         try:
