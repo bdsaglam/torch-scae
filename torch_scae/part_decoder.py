@@ -1,3 +1,5 @@
+from typing import Tuple
+
 import numpy as np
 import torch
 import torch.nn as nn
@@ -59,12 +61,11 @@ class TemplateGenerator(nn.Module):
         Args:
           feature: [B, n_templates, dim_feature] tensor; these features
           are used to change templates based on the input, if present.
+          batch_size (int): batch_size in case feature is None
 
         Returns:
           (B, n_templates, n_channels, *template_size) tensor.
         """
-        device = next(iter(self.parameters())).device
-
         if feature is not None:
             batch_size = feature.shape[0]
 
@@ -95,9 +96,9 @@ class TemplateBasedImageDecoder(nn.Module):
     """Template-based primary capsule decoder for images."""
 
     def __init__(self,
-                 n_templates,
-                 template_size,
-                 output_size,
+                 n_templates: int,
+                 template_size: Tuple[int, int],
+                 output_size: Tuple[int, int],
                  learn_output_scale=False,
                  use_alpha_channel=False,
                  background_value=True):
@@ -146,8 +147,6 @@ class TemplateBasedImageDecoder(nn.Module):
         Returns:
           (B, n_templates, n_channels, *output_size) tensor.
         """
-        device = next(iter(self.parameters())).device
-
         # B, M, C, H, W
         batch_size, n_templates, n_channels, height, width = templates.shape
 
@@ -162,6 +161,7 @@ class TemplateBasedImageDecoder(nn.Module):
             templates, affine_grids, align_corners=False)
         transformed_templates = transformed_templates.view(
             batch_size, n_templates, *target_size[1:])
+        del templates, target_size, affine_matrices
 
         # background image
         if bg_image is not None:
@@ -170,8 +170,8 @@ class TemplateBasedImageDecoder(nn.Module):
             bg_image = torch.sigmoid(self.bg_value).repeat(
                 *transformed_templates[:, :1].shape)
 
-        transformed_templates = torch.cat([transformed_templates, bg_image],
-                                          dim=1)
+        transformed_templates = torch.cat([transformed_templates, bg_image], 1)
+        del bg_image
 
         if self.use_alpha_channel:
             template_mixing_logits = self.templates_alpha.repeat(
@@ -187,21 +187,24 @@ class TemplateBasedImageDecoder(nn.Module):
                 *template_mixing_logits[:, :1].shape)
             template_mixing_logits = torch.cat(
                 [template_mixing_logits, bg_mixing_logit], dim=1)
+            del bg_mixing_logit
         else:
             temperature = F.softplus(self.temperature_logit + .5) + 1e-4
             template_mixing_logits = transformed_templates / temperature
+            del temperature
 
         if self.learn_output_scale:
             scale = F.softplus(self.scale) + 1e-4
         else:
-            scale = torch.tensor([1.0], device=device)
+            scale = transformed_templates.new_tensor([1.0])
 
         if presence is not None:
-            bg_presence = torch.ones([batch_size, 1], device=device)
+            bg_presence = presence.new_ones([batch_size, 1])
             presence = torch.cat([presence, bg_presence], dim=1)
             presence = presence.view(
                 *presence.shape, *([1] * len(template_mixing_logits.shape[2:])))
             template_mixing_logits += math_ops.log_safe(presence)
+            del bg_presence, presence
 
         rec_pdf = GaussianMixture.make_from_stats(
             loc=transformed_templates,
