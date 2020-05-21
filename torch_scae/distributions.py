@@ -28,15 +28,18 @@ class GaussianMixture:
         self.dist = normal_dist
         self.mixing_logits = mixing_logits
 
-        self.mixing_prob = F.softmax(mixing_logits, 1)
-        self.mixing_log_prob = mixing_logits - torch.logsumexp(mixing_logits,
-                                                               dim=1,
-                                                               keepdim=True)
-        self.mean = torch.sum(self.mixing_prob * self.dist.mean, 1)
-
     @property
     def n_components(self):
         return self.mixing_logits.shape[1]
+
+    @property
+    def mixing_log_prob(self):
+        return self.mixing_logits - self.mixing_logits.logsumexp(1, keepdim=True)
+
+    @property
+    def mean(self):
+        mixing_prob = F.softmax(self.mixing_logits, 1)
+        return torch.sum(mixing_prob * self.dist.mean, 1)
 
     def log_prob(self, x):
         x = x.unsqueeze(1)
@@ -59,11 +62,11 @@ class GaussianMixture:
         Returns:
           Mode.
         """
-        mode_value = self.dist.loc
+        dist_mode_value = self.dist.loc
         mixing_log_prob = self.mixing_log_prob
 
         if maximum:
-            mixing_log_prob += self._component_log_prob(mode_value)
+            mixing_log_prob += self._component_log_prob(dist_mode_value)
 
         dims = len(mixing_log_prob.shape)
         dim_order = list(range(dims - 1))
@@ -75,7 +78,7 @@ class GaussianMixture:
             soft_mask = F.softmax(mixing_log_prob, 1)
             mask = (mask - soft_mask).detach() + soft_mask
 
-        return torch.sum(mask * mode_value, 1)
+        return torch.sum(mask * dist_mode_value, 1)
 
     @classmethod
     def make_from_stats(cls, loc, scale, mixing_logits):
