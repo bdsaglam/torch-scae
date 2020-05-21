@@ -51,10 +51,10 @@ def soft_attention(feature_map, attention_map):
     assert feature_map.shape[2:] == attention_map.shape[2:]
     batch_size, n_channels, height, width = feature_map.shape
 
-    fm = feature_map.view(batch_size, n_channels, -1)
-    am = attention_map.view(batch_size, 1, -1)
-    mask = F.softmax(am, dim=-1)
-    x = fm * mask
+    feature_map = feature_map.view(batch_size, n_channels, -1)
+    attention_map = attention_map.view(batch_size, 1, -1)
+    mask = F.softmax(attention_map, dim=-1)
+    x = feature_map * mask
     x = x.view(batch_size, n_channels, height, width)
     return x  # (B, C, H, W)
 
@@ -100,11 +100,11 @@ def attention_pooling_2d(feature_map, attention_channel_index):
     if attention_channel_index < 0:
         attention_channel_index = attention_channel_index + n_channels
 
-    fm = feature_map.view(batch_size, n_channels, -1)
+    feature_map = feature_map.view(batch_size, n_channels, -1)
 
-    attention_map = fm[:, [attention_channel_index], :]
+    attention_map = feature_map[:, [attention_channel_index], :]
     indices = [i for i in range(n_channels) if i != attention_channel_index]
-    real_feature_map = fm[:, indices, :]
+    real_feature_map = feature_map[:, indices, :]
 
     # (B, C-1, 1, 1)
     x = attention_pooling_2d_explicit(real_feature_map, attention_map)
