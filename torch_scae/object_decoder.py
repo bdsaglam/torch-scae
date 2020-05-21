@@ -128,7 +128,7 @@ class CapsuleLayer(nn.Module):
         Returns:
           A bunch of stuff.
         """
-        device = next(iter(self.parameters())).device
+        device = feature.device
 
         batch_size = feature.shape[0]  # B
 
@@ -167,7 +167,7 @@ class CapsuleLayer(nn.Module):
         # add up static and dynamic object part relationship
         cpr_dynamic = result[0]  # (B, O, V, P)
         if not self.allow_deformations:
-            cpr_dynamic = torch.zeros_like(cpr_dynamic, device=device)
+            cpr_dynamic = torch.zeros_like(cpr_dynamic)
         cpr_dynamic_reg_loss = l2_loss(cpr_dynamic) / batch_size
         cpr = self._make_transform(cpr_dynamic + self.cpr_static)  # (B, O, V, 3, 3)
         del cpr_dynamic
@@ -199,7 +199,7 @@ class CapsuleLayer(nn.Module):
         def add_noise(tensor):
             """Adds noise to tensors."""
             if self.noise_type == 'uniform':
-                noise = (torch.rand(tensor.shape) - 0.5) * self.noise_scale
+                noise = (torch.rand_like(tensor) - 0.5) * self.noise_scale
             elif self.noise_type == 'logistic':
                 pdf = LogisticNormal(0., self.noise_scale)
                 noise = pdf.sample(tensor.shape)
@@ -410,8 +410,6 @@ class CapsuleObjectDecoder(nn.Module):
         Returns:
           A bunch of stuff.
         """
-        device = next(iter(self.parameters())).device
-
         batch_size, n_caps = obj_encoding.shape[:2]
         n_votes = part_pose.shape[1]
 
