@@ -57,12 +57,6 @@ class CapsuleLayerTestCase(unittest.TestCase):
         self.assertTrue(
             result.cpr_dynamic_reg_loss.shape == tuple()
         )
-        self.assertTrue(
-            result.raw_caps_param.shape == (B, O, H)
-        )
-        self.assertTrue(
-            result.raw_caps_feature.shape == feature.shape
-        )
 
 
 class CapsuleLikelihoodTestCase(unittest.TestCase):
@@ -170,12 +164,6 @@ class CapsuleObjectDecoderTestCase(unittest.TestCase):
         )
         self.assertTrue(
             result.cpr_dynamic_reg_loss.shape == tuple()
-        )
-        self.assertTrue(
-            result.raw_caps_param.shape == (B, O, H)
-        )
-        self.assertTrue(
-            result.raw_caps_feature.shape == h.shape
         )
         self.assertTrue(
             result.log_prob.shape == tuple()

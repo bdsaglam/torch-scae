@@ -141,7 +141,7 @@ class CapsuleLayer(nn.Module):
         caps_feature_list = feature.unbind(1)  # [(B, F)] * O
         caps_param_list = [self.mlps[i](caps_feature_list[i])
                            for i in range(self.n_caps)]  # [(B, D)] * O
-        del caps_feature_list
+        del feature, caps_feature_list
         raw_caps_param = torch.stack(caps_param_list, 1)  # (B, O, D)
         del caps_param_list
 
@@ -153,7 +153,7 @@ class CapsuleLayer(nn.Module):
         caps_exist = caps_exist.to(device)
 
         caps_param = torch.cat([raw_caps_param, caps_exist], -1)  # (B, O, D+1)
-        del caps_exist
+        del raw_caps_param, caps_exist
 
         caps_eparam_list = caps_param.unbind(1)  # [(B, D+1)] * O
         all_param_list = [self.caps_mlps[i](caps_eparam_list[i])
@@ -237,8 +237,6 @@ class CapsuleLayer(nn.Module):
             presence_logit_per_caps=presence_logit_per_caps,
             presence_logit_per_vote=presence_logit_per_vote,
             cpr_dynamic_reg_loss=cpr_dynamic_reg_loss,
-            raw_caps_param=raw_caps_param,
-            raw_caps_feature=feature,
         )
 
     def _make_transform(self, params):
