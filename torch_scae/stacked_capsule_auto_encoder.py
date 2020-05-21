@@ -49,13 +49,13 @@ class SCAE(nn.Module):
         self._stop_grad_caps_target = stop_grad_caps_target
 
         if n_classes:
-            self._posterior_cls_probe = ClassificationProbe(
-                obj_decoder.n_obj_capsules, n_classes)
             self._prior_cls_probe = ClassificationProbe(
                 obj_decoder.n_obj_capsules, n_classes)
+            self._posterior_cls_probe = ClassificationProbe(
+                obj_decoder.n_obj_capsules, n_classes)
         else:
-            self._posterior_cls_probe = None
             self._prior_cls_probe = None
+            self._posterior_cls_probe = None
 
         self._cpr_dynamic_reg_weight = cpr_dynamic_reg_weight
         self._caps_ll_weight = caps_ll_weight
@@ -69,8 +69,6 @@ class SCAE(nn.Module):
         self._part_caps_sparsity_weight = part_caps_sparsity_weight
 
     def forward(self, image, label=None, reconstruction_target=None):
-        device = next(iter(self.parameters())).device
-
         if reconstruction_target is None:
             reconstruction_target = image
 
@@ -83,6 +81,7 @@ class SCAE(nn.Module):
         template_res = self._template_generator(feature=part_enc_res.feature,
                                                 batch_size=batch_size)
         templates = template_res.templates
+        del template_res.raw_templates, template_res
 
         # Encode objects from templates and part instantiation parameters
         input_part_param = torch.cat(
@@ -207,12 +206,6 @@ class SCAE(nn.Module):
 
         return res
 
-    def _classify(self, model, x, label):  # (B, O), (B, )
-        predicted_prob = model(x)
-        xe_loss = F.cross_entropy(input=predicted_prob, target=label)
-        accuracy = (torch.argmax(predicted_prob, 1) == label).float().mean()
-        return xe_loss, accuracy
-
     def loss(self, res):
         (res.prior_within_sparsity_loss,
          res.prior_between_sparsity_loss) = sparsity_loss(
@@ -240,9 +233,7 @@ class SCAE(nn.Module):
                 + self._prior_between_example_sparsity_weight * res.prior_between_sparsity_loss
         )
 
-        try:
+        if self._n_classes:
             loss += res.posterior_cls_xe + res.prior_cls_xe
-        except AttributeError:
-            pass
 
         return loss
