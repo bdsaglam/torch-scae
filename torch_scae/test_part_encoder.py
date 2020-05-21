@@ -52,9 +52,6 @@ class CapsuleImageEncoderTestCase(unittest.TestCase):
             tuple(result.presence.shape) == (batch_size, n_caps)
         )
         self.assertTrue(
-            tuple(result.presence_logit.shape) == (batch_size, n_caps)
-        )
-        self.assertTrue(
             list(result.img_embedding.shape) == [batch_size] + list(cnn_encoder.output_shape)
         )
 

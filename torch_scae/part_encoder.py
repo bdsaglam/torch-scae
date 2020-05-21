@@ -55,7 +55,6 @@ class CapsuleImageEncoder(nn.Module):
         self.output_shapes = AttrDict(
             pose=(n_caps, n_poses),
             presence=(n_caps,),
-            presence_logits=(n_caps,),
             feature=(n_caps, n_special_features),
         )
 
@@ -96,6 +95,5 @@ class CapsuleImageEncoder(nn.Module):
         pose = cv_ops.geometric_transform(pose, self.similarity_transform)  # (B, M, P)
         return AttrDict(pose=pose,
                         presence=presence_prob,
-                        presence_logit=presence_logit,
                         feature=special_feature,
                         img_embedding=img_embedding)
