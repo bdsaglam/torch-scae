@@ -1,7 +1,8 @@
+import gc
+
 import numpy as np
 import torch
 from torchvision import datasets, transforms
-from tqdm import tqdm
 
 from torch_scae import factory
 from torch_scae.configs import mnist_config
@@ -13,8 +14,7 @@ def train(scae, optimizer, data_loader, epoch, device=torch.device("cpu")):
 
     batch_size = int(data_loader.batch_size)
     n_batch = int(np.ceil(len(data_loader.dataset) / batch_size))
-    total_loss = 0
-    for i, (image, label) in enumerate(tqdm(data_loader)):
+    for i, (image, label) in enumerate(data_loader):
         image, label = image.to(device), label.to(device)
 
         optimizer.zero_grad()
@@ -25,18 +25,18 @@ def train(scae, optimizer, data_loader, epoch, device=torch.device("cpu")):
 
         loss_value = loss.detach().cpu().item()
         accuracy = res.best_cls_acc.detach().cpu().item()
-        total_loss += loss_value
-        avg_loss = loss_value / batch_size
-
-        del res
-        del loss
-        torch.cuda.empty_cache()
 
         if i % 100 == 0:
-            tqdm.write(
-                f"Epoch: [{epoch}], Batch: [{i + 1}/{n_batch}], train accuracy: {accuracy:.6f}, "
-                f"loss: {avg_loss:.6f}"
+            print(
+                f"Epoch: [{epoch}], Batch: [{i + 1}/{n_batch}] | Train | "
+                f"Loss: {loss_value:.1f} "
+                f"Accuracy: {accuracy:.3f} "
             )
+
+        del res, loss
+        torch.cuda.empty_cache()
+        gc.collect()
+        break
 
 
 def evaluate(scae, data_loader, epoch, device=torch.device("cpu")):
@@ -45,8 +45,9 @@ def evaluate(scae, data_loader, epoch, device=torch.device("cpu")):
 
     batch_size = int(data_loader.batch_size)
     n_batch = int(np.ceil(len(data_loader.dataset) / batch_size))
-    total_loss = 0
-    for i, (image, label) in enumerate(tqdm(data_loader)):
+    losses = []
+    accuracies = []
+    for i, (image, label) in enumerate(data_loader):
         image, label = image.to(device), label.to(device)
 
         with torch.no_grad():
@@ -54,19 +55,21 @@ def evaluate(scae, data_loader, epoch, device=torch.device("cpu")):
             loss = scae.loss(res)
 
         loss_value = loss.detach().cpu().item()
+        losses.append(loss_value)
+
         accuracy = res.best_cls_acc.detach().cpu().item()
-        total_loss += loss_value
-        avg_loss = loss_value / float(batch_size)
+        accuracies.append(accuracy)
 
-        del res
-        del loss
+        del res, loss
         torch.cuda.empty_cache()
+        gc.collect()
+        break
 
-        if i % 100 == 0:
-            tqdm.write(
-                f"Epoch: [{epoch}], Batch: [{i + 1}/{n_batch}], val accuracy: {accuracy:.6f}, "
-                f"loss: {avg_loss:.6f}"
-            )
+    print(
+        f"Epoch: [{epoch}] Batch: [{n_batch}/{n_batch}] | Valid | "
+        f"Loss(μ:{np.mean(losses):.1f}, σ: {np.std(losses):.1f} "
+        f"Accuracy(μ:{np.mean(accuracies):.3f}, σ: {np.std(accuracies):.3f} "
+    )
 
 
 if __name__ == '__main__':
