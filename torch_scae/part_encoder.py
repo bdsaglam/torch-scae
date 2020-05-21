@@ -78,9 +78,9 @@ class CapsuleImageEncoder(nn.Module):
         img_embedding = self.encoder(image)  # (B, D, G, G)
 
         h = img_embedding + self.img_embedding_bias.unsqueeze(0)  # (B, D, G, G)
-        h = self.att_conv(h)  # (B, M * (P + S + 1 + 1), G, G)
-        h = multiple_attention_pooling_2d(h, self.n_caps)  # (B, M * (P + S + 1), 1, 1)
-        h = h.view(batch_size, self.n_caps, self.n_total_caps_dims)  # (B, M, (P + S + 1))
+        h = self.att_conv(h)  # (B, M * (P + 1 + S + 1), G, G)
+        h = multiple_attention_pooling_2d(h, self.n_caps)  # (B, M * (P + 1 + S), 1, 1)
+        h = h.view(batch_size, self.n_caps, self.n_total_caps_dims)  # (B, M, (P + 1 + S))
 
         # (B, M, P), (B, M, 1), (B, M, S)
         pose, presence_logit, special_feature = torch.split(h, self.caps_dim_splits, -1)
@@ -88,12 +88,12 @@ class CapsuleImageEncoder(nn.Module):
             special_feature = None
 
         presence_logit = presence_logit.squeeze(-1)  # (B, M)
-        if self.noise_scale > 0. and self.training:
+        if self.training and self.noise_scale > 0.:
             noise = (torch.rand(*presence_logit.shape) - .5) * self.noise_scale
-            presence_logit = presence_logit + noise.to(device)
+            presence_logit = presence_logit + noise.to(device)  # (B, M)
 
-        presence_prob = torch.sigmoid(presence_logit)
-        pose = cv_ops.geometric_transform(pose, self.similarity_transform)
+        presence_prob = torch.sigmoid(presence_logit)  # (B, M)
+        pose = cv_ops.geometric_transform(pose, self.similarity_transform)  # (B, M, P)
         return AttrDict(pose=pose,
                         presence=presence_prob,
                         presence_logit=presence_logit,
