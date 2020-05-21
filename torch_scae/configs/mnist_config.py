@@ -64,7 +64,7 @@ ocae_decoder_capsule = AttrDict(
     hidden_sizes=(128,),
     caps_dropout_rate=0.0,
     learn_vote_scale=True,
-    deformations=True,
+    allow_deformations=True,
     noise_type='uniform',
     noise_scale=4.,
     similarity_transform=False,
@@ -72,7 +72,7 @@ ocae_decoder_capsule = AttrDict(
 
 scae = AttrDict(
     n_classes=n_classes,
-    dynamic_l2_weight=10,
+    cpr_dynamic_reg_weight=10,
     caps_ll_weight=1.,
     vote_type='enc',
     presence_type='enc',

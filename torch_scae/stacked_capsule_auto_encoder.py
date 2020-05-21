@@ -21,7 +21,7 @@ class SCAE(nn.Module):
             presence_type='enc',
             stop_grad_caps_input=True,
             stop_grad_caps_target=True,
-            dynamic_l2_weight=0.,
+            cpr_dynamic_reg_weight=0.,
             caps_ll_weight=0.,
             prior_sparsity_loss_type='l2',
             prior_within_example_sparsity_weight=0.,
@@ -57,7 +57,7 @@ class SCAE(nn.Module):
             self._posterior_cls_probe = None
             self._prior_cls_probe = None
 
-        self._dynamic_l2_weight = dynamic_l2_weight
+        self._cpr_dynamic_reg_weight = cpr_dynamic_reg_weight
         self._caps_ll_weight = caps_ll_weight
         self._prior_sparsity_loss_type = prior_sparsity_loss_type
         self._prior_within_example_sparsity_weight = prior_within_example_sparsity_weight
@@ -75,53 +75,52 @@ class SCAE(nn.Module):
             reconstruction_target = image
 
         batch_size = image.shape[0]
+
+        # Encode parts from the image
         part_encoding = self._part_encoder(image)
 
-        input_pose = torch.cat(
+        # Generate templates
+        template_res = self._template_generator(feature=part_encoding.feature,
+                                                batch_size=batch_size)
+        templates = template_res.templates
+
+        # Encode objects from templates and part instantiation parameters
+        input_part_param = torch.cat(
             [part_encoding.pose, 1. - part_encoding.presence.unsqueeze(-1)],
             -1
         )
         input_presence = part_encoding.presence
 
         if self._stop_grad_caps_input:
-            input_pose = input_pose.detach()
+            input_part_param = input_part_param.detach()
             input_presence = input_presence.detach()
 
+        # Skip connection from the image to the higher level capsule
+        if part_encoding.feature is not None:
+            input_part_param = torch.cat([input_part_param, part_encoding.feature], -1)
+
+        input_templates = templates
+        if self._stop_grad_caps_input:
+            input_templates = templates.detach()
+        input_templates = input_templates.view(*input_templates.shape[:2], -1)
+
+        parts_with_templates = torch.cat([input_part_param, input_templates], -1)
+
+        obj_encoding = self._obj_encoder(parts_with_templates, input_presence)
+        del input_part_param, input_templates, parts_with_templates, input_presence
+
+        # Decode parts poses and presences from object encoding
         target_pose, target_presence = part_encoding.pose, part_encoding.presence
         if self._stop_grad_caps_target:
             target_pose = target_pose.detach()
             target_presence = target_presence.detach()
 
-        # skip connection from the img to the higher level capsule
-        if part_encoding.feature is not None:
-            input_pose = torch.cat([input_pose, part_encoding.feature], -1)
-
-        template_res = self._template_generator(feature=part_encoding.feature)
-        templates = template_res.templates
-
-        input_templates = templates
-        if self._stop_grad_caps_input:
-            input_templates = templates.detach()
-
-        if input_templates.shape[0] == 1:
-            input_templates = input_templates.repeat(batch_size, 1, 1, 1, 1)
-
-        input_templates = input_templates.view(*input_templates.shape[:2], -1)
-        pose_with_templates = torch.cat([input_pose, input_templates], -1)
-
-        h = self._obj_encoder(pose_with_templates, input_presence)
-        del input_pose
-        del input_presence
-        del input_templates
-        del pose_with_templates
-
-        res = self._obj_decoder(h, target_pose, target_presence)
-        del h
-        del target_pose
-        del target_presence
+        res = self._obj_decoder(obj_encoding, target_pose, target_presence)
+        del obj_encoding, target_pose, target_presence
 
         res.part_presence = part_encoding.presence
 
+        # Decode parts into reconstructions. START
         if self._vote_type == 'enc':
             part_dec_vote = part_encoding.pose
         elif self._vote_type == 'soft':
@@ -129,7 +128,7 @@ class SCAE(nn.Module):
         elif self._vote_type == 'hard':
             part_dec_vote = res.winner
         else:
-            raise ValueError('Invalid vote_type="{}"".'.format(self._vote_type))
+            raise ValueError(f'Invalid vote_type: {self._vote_type}')
 
         if self._presence_type == 'enc':
             part_dec_presence = part_encoding.presence
@@ -138,54 +137,54 @@ class SCAE(nn.Module):
         elif self._presence_type == 'hard':
             part_dec_presence = res.winner_presence
         else:
-            raise ValueError(f'Invalid pres_type: {self._presence_type}')
+            raise ValueError(f'Invalid presence_type: {self._presence_type}')
 
-        res.bottom_up_decoding = self._part_decoder(
+        res.bottom_up_rec = self._part_decoder(
             templates=templates,
             pose=part_encoding.pose,
             presence=part_encoding.presence)
 
-        res.top_down_decoding = self._part_decoder(
+        res.top_down_rec = self._part_decoder(
             templates=templates,
             pose=res.winner,
             presence=part_encoding.presence)
 
-        part_decoding = self._part_decoder(
+        rec = self._part_decoder(
             templates=templates,
             pose=part_dec_vote,
             presence=part_dec_presence)
 
         #
         n_obj_caps = res.vote.shape[1]
-        tiled_presence = part_encoding.presence.repeat(n_obj_caps, 1)
 
-        tiled_feature = part_encoding.feature
-        if tiled_feature is not None:
-            tiled_feature = tiled_feature.repeat(n_obj_caps, 1, 1)
+        td_feature = part_encoding.feature
+        if td_feature is not None:
+            td_feature = td_feature.repeat(n_obj_caps, 1, 1)
 
-        tiled_templates = self._template_generator(feature=tiled_feature).templates
+        td_templates = self._template_generator(feature=td_feature).templates
+        td_pose = res.vote.view(-1, *res.vote.shape[2:])
+        td_presence = res.vote_presence.view(-1, *res.vote_presence.shape[2:]) \
+                      * part_encoding.presence.repeat(n_obj_caps, 1)
         res.top_down_per_caps_rec = self._part_decoder(
-            templates=tiled_templates,
-            pose=res.vote.view(-1, *res.vote.shape[2:]),
-            presence=res.vote_presence.view(
-                -1, *res.vote_presence.shape[2:]) * tiled_presence)
-        del tiled_presence
-        del tiled_feature
-        del tiled_templates
+            templates=td_templates,
+            pose=td_pose,
+            presence=td_presence)
+        del td_feature, td_templates, td_pose, td_presence
 
-        #
+        # Decode parts into reconstructions. END
+
         res.templates = templates
         res.template_presence = part_encoding.presence
-        res.used_templates = part_decoding.transformed_templates
+        res.used_templates = rec.transformed_templates
 
-        res.rec_mode = part_decoding.pdf.mode()
-        res.rec_mean = part_decoding.pdf.mean
+        res.rec_mode = rec.pdf.mode()
+        res.rec_mean = rec.pdf.mean
 
         res.mse_per_pixel = (reconstruction_target - res.rec_mode) ** 2
         res.mse = res.mse_per_pixel.view(
             res.mse_per_pixel.shape[0], -1).sum(-1).mean()
 
-        res.rec_ll_per_pixel = part_decoding.pdf.log_prob(reconstruction_target)
+        res.rec_ll_per_pixel = rec.pdf.log_prob(reconstruction_target)
         res.rec_ll = res.rec_ll_per_pixel.view(
             res.rec_ll_per_pixel.shape[0], -1).sum(-1).mean()
 
@@ -233,7 +232,7 @@ class SCAE(nn.Module):
         loss = (
                 -res.rec_ll
                 - self._caps_ll_weight * res.log_prob
-                + self._dynamic_l2_weight * res.dynamic_weights_l2
+                + self._cpr_dynamic_reg_weight * res.cpr_dynamic_reg_loss
                 + self._part_caps_sparsity_weight * res.part_caps_l1
                 + self._posterior_within_example_sparsity_weight * res.posterior_within_sparsity_loss
                 + self._posterior_between_example_sparsity_weight * res.posterior_between_sparsity_loss

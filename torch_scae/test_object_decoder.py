@@ -15,7 +15,7 @@ class CapsuleLayerTestCase(unittest.TestCase):
             dim_caps=32,
             hidden_sizes=(128,),
             learn_vote_scale=True,
-            deformations=True,
+            allow_deformations=True,
             noise_type='uniform',
             noise_scale=4.,
             similarity_transform=False,
@@ -49,13 +49,13 @@ class CapsuleLayerTestCase(unittest.TestCase):
             result.vote_presence.shape == (B, O, V)
         )
         self.assertTrue(
-            result.pres_logit_per_caps.shape == (B, O, 1)
+            result.presence_logit_per_caps.shape == (B, O, 1)
         )
         self.assertTrue(
-            result.pres_logit_per_vote.shape == (B, O, V)
+            result.presence_logit_per_vote.shape == (B, O, V)
         )
         self.assertTrue(
-            result.dynamic_weights_l2.shape == tuple()
+            result.cpr_dynamic_reg_loss.shape == tuple()
         )
         self.assertTrue(
             result.raw_caps_param.shape == (B, O, H)
@@ -130,7 +130,7 @@ class CapsuleObjectDecoderTestCase(unittest.TestCase):
             dim_caps=32,
             hidden_sizes=(128,),
             learn_vote_scale=True,
-            deformations=True,
+            allow_deformations=True,
             noise_type='uniform',
             noise_scale=4.,
             similarity_transform=False,
@@ -163,13 +163,13 @@ class CapsuleObjectDecoderTestCase(unittest.TestCase):
             result.vote_presence.shape == (B, O, V)
         )
         self.assertTrue(
-            result.pres_logit_per_caps.shape == (B, O, 1)
+            result.presence_logit_per_caps.shape == (B, O, 1)
         )
         self.assertTrue(
-            result.pres_logit_per_vote.shape == (B, O, V)
+            result.presence_logit_per_vote.shape == (B, O, V)
         )
         self.assertTrue(
-            result.dynamic_weights_l2.shape == tuple()
+            result.cpr_dynamic_reg_loss.shape == tuple()
         )
         self.assertTrue(
             result.raw_caps_param.shape == (B, O, H)
