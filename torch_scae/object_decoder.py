@@ -168,14 +168,15 @@ class CapsuleLayer(nn.Module):
         del all_param_split_list
 
         # add up static and dynamic object part relationship
-        cpr_dynamic = result[0]
+        cpr_dynamic = result[0]  # (B, O, V, P)
         if not self.allow_deformations:
             cpr_dynamic = torch.zeros_like(cpr_dynamic, device=device)
         cpr_dynamic_reg_loss = l2_loss(cpr_dynamic) / batch_size
-        cpr = self._make_transform(cpr_dynamic + self.cpr_static)
+        cpr = self._make_transform(cpr_dynamic + self.cpr_static)  # (B, O, V, 3, 3)
         del cpr_dynamic
 
         # add bias to all remaining outputs
+        # (B, O, 1, P), (B, O, 1), (B, O, V), (B, O, V)
         cvr, presence_logit_per_caps, presence_logit_per_vote, scale_per_vote = [
             t + bias
             for (t, bias) in zip(result[1:], self.caps_bias_list)
@@ -183,13 +184,15 @@ class CapsuleLayer(nn.Module):
         del result
 
         # this is for hierarchical
+        # (B, O, 1, 3, 3)
         if parent_transform is None:
             cvr = self._make_transform(cvr)
         else:
             cvr = parent_transform
 
-        cvr_per_vote = cvr.repeat(1, 1, self.n_votes, 1, 1)
-        vote = torch.matmul(cvr_per_vote, cpr)  # PVR = OVR x OPR
+        cvr_per_vote = cvr.repeat(1, 1, self.n_votes, 1, 1)  # (B, O, V, 3, 3)
+        # PVR = OVR x OPR
+        vote = torch.matmul(cvr_per_vote, cpr)  # (B, O, V, 3, 3)
         del cvr_per_vote, cpr
 
         if self.caps_dropout_rate > 0.0:
@@ -209,17 +212,18 @@ class CapsuleLayer(nn.Module):
                 raise ValueError(f'Invalid noise type: {self.noise_type}')
             return tensor + noise.to(device)
 
-        presence_logit_per_caps = add_noise(presence_logit_per_caps)
-        presence_logit_per_vote = add_noise(presence_logit_per_vote)
+        presence_logit_per_caps = add_noise(presence_logit_per_caps)  # (B, O, 1)
+        presence_logit_per_vote = add_noise(presence_logit_per_vote)  # (B, O, V)
 
         if parent_presence is not None:
             presence_per_caps = parent_presence
         else:
             presence_per_caps = torch.sigmoid(presence_logit_per_caps)
 
-        presence_per_vote = presence_per_caps * torch.sigmoid(presence_logit_per_vote)
+        presence_per_vote = presence_per_caps * torch.sigmoid(presence_logit_per_vote)  # (B, O, V)
         del presence_per_caps
 
+        # (B, O, V)
         if self.learn_vote_scale:
             # for numerical stability
             scale_per_vote = F.softplus(scale_per_vote + .5) + 1e-2
