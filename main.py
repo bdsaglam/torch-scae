@@ -62,7 +62,7 @@ def evaluate(scae, data_loader, epoch, device=torch.device("cpu")):
 
         if i % 100 == 0:
             tqdm.write(
-                f"Epoch: [{epoch}], Batch: [{i + 1}/{n_batch}], train accuracy: {accuracy:.6f}, "
+                f"Epoch: [{epoch}], Batch: [{i + 1}/{n_batch}], val accuracy: {accuracy:.6f}, "
                 f"loss: {avg_loss:.6f}"
             )
 
