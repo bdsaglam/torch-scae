@@ -80,10 +80,12 @@ class MultiHeadQKVAttention(nn.Module):
         q_p = self.q_projector(queries)  # (B, N, d_k_p)
         k_p = self.k_projector(keys)  # (B, M, d_k_p)
         v_p = self.v_projector(values)  # (B, M, d_v_p)
+        del queries, keys, values
 
         q_s = q_p.split(self.d_k_s, -1)  # [(B, N, d_k_s)] * H
         k_s = k_p.split(self.d_k_s, -1)  # [(B, M, d_k_s)] * H
         v_s = v_p.split(self.d_v_s, -1)  # [(B, M, d_v_s)] * H
+        del q_p, k_p, v_p
 
         q = torch.cat(q_s, 0)  # (H*B, N, d_k_s)
         k = torch.cat(k_s, 0)  # (H*B, M, d_k_s)
@@ -91,6 +93,7 @@ class MultiHeadQKVAttention(nn.Module):
 
         if presence is not None:
             presence = presence.repeat(self.n_heads, 1)
+
         o = qkv_attention(q, k, v, presence)  # (H*B, N, d_v_s)
         o = o.split(batch_size, 0)  # [(B, N, d_v_s)] * H
         o = torch.cat(o, -1)  # (B, N, d_v_p)
@@ -102,8 +105,9 @@ class MultiHeadQKVAttention(nn.Module):
 class MAB(nn.Module):
     def __init__(self, d, n_heads, layer_norm=False):
         super().__init__()
-        self.mqkv = MultiHeadQKVAttention(d_k=d, d_v=d, n_heads=n_heads)
         self.layer_norm = layer_norm
+
+        self.mqkv = MultiHeadQKVAttention(d_k=d, d_v=d, n_heads=n_heads)
         if layer_norm:
             self.ln0 = nn.LayerNorm(d)
             self.ln1 = nn.LayerNorm(d)
@@ -111,7 +115,7 @@ class MAB(nn.Module):
 
     def forward(self, queries, keys, presence=None):
         h = self.mqkv(queries, keys, keys, presence)  # (B, N, d)
-        h += queries  # (B, N, d)
+        h = h + queries  # (B, N, d)
         if self.layer_norm:
             h = self.ln0(h)  # (B, N, d)
 
