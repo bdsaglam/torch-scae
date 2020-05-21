@@ -77,27 +77,27 @@ class SCAE(nn.Module):
         batch_size = image.shape[0]
 
         # Encode parts from the image
-        part_encoding = self._part_encoder(image)
+        part_enc_res = self._part_encoder(image)
 
         # Generate templates
-        template_res = self._template_generator(feature=part_encoding.feature,
+        template_res = self._template_generator(feature=part_enc_res.feature,
                                                 batch_size=batch_size)
         templates = template_res.templates
 
         # Encode objects from templates and part instantiation parameters
         input_part_param = torch.cat(
-            [part_encoding.pose, 1. - part_encoding.presence.unsqueeze(-1)],
+            [part_enc_res.pose, 1. - part_enc_res.presence.unsqueeze(-1)],
             -1
         )
-        input_presence = part_encoding.presence
+        input_presence = part_enc_res.presence
 
         if self._stop_grad_caps_input:
             input_part_param = input_part_param.detach()
             input_presence = input_presence.detach()
 
         # Skip connection from the image to the higher level capsule
-        if part_encoding.feature is not None:
-            input_part_param = torch.cat([input_part_param, part_encoding.feature], -1)
+        if part_enc_res.feature is not None:
+            input_part_param = torch.cat([input_part_param, part_enc_res.feature], -1)
 
         input_templates = templates
         if self._stop_grad_caps_input:
@@ -110,7 +110,7 @@ class SCAE(nn.Module):
         del input_part_param, input_templates, parts_with_templates, input_presence
 
         # Decode parts poses and presences from object encoding
-        target_pose, target_presence = part_encoding.pose, part_encoding.presence
+        target_pose, target_presence = part_enc_res.pose, part_enc_res.presence
         if self._stop_grad_caps_target:
             target_pose = target_pose.detach()
             target_presence = target_presence.detach()
@@ -118,11 +118,11 @@ class SCAE(nn.Module):
         res = self._obj_decoder(obj_encoding, target_pose, target_presence)
         del obj_encoding, target_pose, target_presence
 
-        res.part_presence = part_encoding.presence
+        res.part_presence = part_enc_res.presence
 
         # Decode parts into reconstructions. START
         if self._vote_type == 'enc':
-            part_dec_vote = part_encoding.pose
+            part_dec_vote = part_enc_res.pose
         elif self._vote_type == 'soft':
             part_dec_vote = res.soft_winner
         elif self._vote_type == 'hard':
@@ -131,7 +131,7 @@ class SCAE(nn.Module):
             raise ValueError(f'Invalid vote_type: {self._vote_type}')
 
         if self._presence_type == 'enc':
-            part_dec_presence = part_encoding.presence
+            part_dec_presence = part_enc_res.presence
         elif self._presence_type == 'soft':
             part_dec_presence = res.soft_winner_presence
         elif self._presence_type == 'hard':
@@ -141,13 +141,13 @@ class SCAE(nn.Module):
 
         res.bottom_up_rec = self._part_decoder(
             templates=templates,
-            pose=part_encoding.pose,
-            presence=part_encoding.presence)
+            pose=part_enc_res.pose,
+            presence=part_enc_res.presence)
 
         res.top_down_rec = self._part_decoder(
             templates=templates,
             pose=res.winner,
-            presence=part_encoding.presence)
+            presence=part_enc_res.presence)
 
         rec = self._part_decoder(
             templates=templates,
@@ -157,14 +157,14 @@ class SCAE(nn.Module):
         #
         n_obj_caps = res.vote.shape[1]
 
-        td_feature = part_encoding.feature
+        td_feature = part_enc_res.feature
         if td_feature is not None:
             td_feature = td_feature.repeat(n_obj_caps, 1, 1)
 
         td_templates = self._template_generator(feature=td_feature).templates
         td_pose = res.vote.view(-1, *res.vote.shape[2:])
         td_presence = res.vote_presence.view(-1, *res.vote_presence.shape[2:]) \
-                      * part_encoding.presence.repeat(n_obj_caps, 1)
+                      * part_enc_res.presence.repeat(n_obj_caps, 1)
         res.top_down_per_caps_rec = self._part_decoder(
             templates=td_templates,
             pose=td_pose,
@@ -174,7 +174,7 @@ class SCAE(nn.Module):
         # Decode parts into reconstructions. END
 
         res.templates = templates
-        res.template_presence = part_encoding.presence
+        res.template_presence = part_enc_res.presence
         res.used_templates = rec.transformed_templates
 
         res.rec_mode = rec.pdf.mode()

@@ -28,6 +28,64 @@ from torch_scae.general_utils import prod
 from torch_scae.math_ops import l2_loss
 
 
+class CapsuleObjectDecoder(nn.Module):
+    def __init__(self, capsule_layer):
+        """
+
+        Args:
+          capsule_layer: a capsule layer.
+        """
+        super().__init__()
+        self.capsule_layer = capsule_layer
+
+        self.dummy_vote = nn.Parameter(
+            torch.zeros(1, 1, capsule_layer.n_votes, capsule_layer.n_transform_params),
+            requires_grad=True
+        )
+
+    @property
+    def n_obj_capsules(self):
+        return self.capsule_layer.n_caps
+
+    def forward(self, obj_encoding, part_pose, part_presence=None):
+        """Builds the module.
+
+        Args:
+          obj_encoding: Tensor of shape [B, O, D].
+          part_pose: Tensor of shape [B, M, P]
+          part_presence: Tensor of shape [B, M] or None; if it exists, it
+            indicates which input parts exist.
+
+        Returns:
+          A bunch of stuff.
+        """
+        device = next(iter(self.parameters())).device
+
+        batch_size, n_caps = obj_encoding.shape[:2]
+        n_votes = part_pose.shape[1]
+
+        res = self.capsule_layer(obj_encoding)
+        # remove homogeneous coord row from transformation matrices
+        res.vote = res.vote[..., :-1, :].view(batch_size, n_caps, n_votes, -1)
+
+        likelihood = CapsuleLikelihood(
+            vote=res.vote,
+            scale=res.scale,
+            vote_presence_prob=res.vote_presence,
+            dummy_vote=self.dummy_vote
+        )
+        ll_res = likelihood(part_pose, presence=part_presence)
+        res.update(ll_res)
+        del likelihood
+
+        res.caps_presence_prob = torch.max(
+            res.vote_presence.view(batch_size, n_caps, n_votes),
+            2
+        )[0]
+
+        return res
+
+
 class CapsuleLayer(nn.Module):
     """Implementation of a capsule layer."""
 
@@ -254,7 +312,7 @@ class CapsuleLikelihood(nn.Module):
         self.vote = vote  # (B, O, M, P)
         self.scale = scale  # (B, O, M)
         self.vote_presence_prob = vote_presence_prob  # (B, O, M)
-        self.dummy_vote = dummy_vote
+        self.dummy_vote = dummy_vote  # (1, 1, M, P)
 
     def _get_pdf(self, votes, scales):
         return Normal(votes, scales)
@@ -382,65 +440,6 @@ class CapsuleLikelihood(nn.Module):
             mixing_logit=mixing_logit,
             is_from_capsule=is_from_capsule,
         )
-
-
-class CapsuleObjectDecoder(nn.Module):
-    def __init__(self, capsule_layer):
-        """Builds the module.
-
-        Args:
-          capsule_layer: a capsule layer.
-        """
-        super().__init__()
-        self.capsule_layer = capsule_layer
-
-        self.dummy_vote = nn.Parameter(
-            torch.zeros(1, 1, capsule_layer.n_votes, capsule_layer.n_transform_params),
-            requires_grad=True
-        )
-
-    @property
-    def n_obj_capsules(self):
-        return self.capsule_layer.n_caps
-
-    def forward(self, h, x, presence=None):
-        """Builds the module.
-
-        Args:
-          h: Tensor of object encodings of shape [B, O, D].
-          x: Tensor of inputs of shape [B, V, P]
-          presence: Tensor of shape [B, V] or None; if it exists, it
-            indicates which input points exist.
-
-        Returns:
-          A bunch of stuff.
-        """
-        device = next(iter(self.parameters())).device
-
-        batch_size, n_caps = h.shape[:2]
-        n_votes = x.shape[1]
-
-        res = self.capsule_layer(h)
-        res.vote = res.vote[..., :-1, :].view(batch_size, n_caps, n_votes, 6)
-
-        vote_presence_prob = res.vote_presence
-        likelihood = CapsuleLikelihood(
-            vote=res.vote,
-            scale=res.scale,
-            vote_presence_prob=vote_presence_prob,
-            dummy_vote=self.dummy_vote
-        )
-        likelihood.to(device)
-        ll_res = likelihood(x, presence=presence)
-        res.update(ll_res)
-        del likelihood
-
-        res.caps_presence_prob = torch.max(
-            vote_presence_prob.view(batch_size, n_caps, n_votes),
-            2
-        )[0]
-
-        return res
 
 
 # prior sparsity loss
