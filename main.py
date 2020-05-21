@@ -11,7 +11,8 @@ def train(scae, optimizer, data_loader, epoch, device=torch.device("cpu")):
     scae.to(device)
     scae.train()
 
-    n_batch = np.ceil(len(data_loader.dataset) / data_loader.batch_size)
+    batch_size = int(data_loader.batch_size)
+    n_batch = int(np.ceil(len(data_loader.dataset) / batch_size))
     total_loss = 0
     for i, (image, label) in enumerate(tqdm(data_loader)):
         image, label = image.to(device), label.to(device)
@@ -25,7 +26,7 @@ def train(scae, optimizer, data_loader, epoch, device=torch.device("cpu")):
         loss_value = loss.detach().cpu().item()
         accuracy = res.best_cls_acc.detach().cpu().item()
         total_loss += loss_value
-        avg_loss = loss_value / float(data_loader.batch_size)
+        avg_loss = loss_value / batch_size
 
         del res
         del loss
@@ -42,7 +43,8 @@ def evaluate(scae, data_loader, epoch, device=torch.device("cpu")):
     scae.to(device)
     scae.eval()
 
-    n_batch = np.ceil(len(data_loader.dataset) / data_loader.batch_size)
+    batch_size = int(data_loader.batch_size)
+    n_batch = int(np.ceil(len(data_loader.dataset) / batch_size))
     total_loss = 0
     for i, (image, label) in enumerate(tqdm(data_loader)):
         image, label = image.to(device), label.to(device)
@@ -54,7 +56,7 @@ def evaluate(scae, data_loader, epoch, device=torch.device("cpu")):
         loss_value = loss.detach().cpu().item()
         accuracy = res.best_cls_acc.detach().cpu().item()
         total_loss += loss_value
-        avg_loss = loss_value / float(data_loader.batch_size)
+        avg_loss = loss_value / float(batch_size)
 
         del res
         del loss
