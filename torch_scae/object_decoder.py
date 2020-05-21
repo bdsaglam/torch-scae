@@ -231,11 +231,11 @@ class CapsuleLayer(nn.Module):
             scale_per_vote = torch.ones_like(scale_per_vote, device=device)
 
         return AttrDict(
-            vote=vote,
-            scale=scale_per_vote,
-            vote_presence=presence_per_vote,
-            presence_logit_per_caps=presence_logit_per_caps,
-            presence_logit_per_vote=presence_logit_per_vote,
+            vote=vote,  # (B, O, V, 3, 3)
+            scale=scale_per_vote,  # (B, O, V)
+            vote_presence=presence_per_vote,  # (B, O, V)
+            presence_logit_per_caps=presence_logit_per_caps,  # (B, O, 1)
+            presence_logit_per_vote=presence_logit_per_vote,  # (B, O, V)
             cpr_dynamic_reg_loss=cpr_dynamic_reg_loss,
         )
 
