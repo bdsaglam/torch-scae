@@ -47,4 +47,4 @@ class SCAETestCase(unittest.TestCase):
                           label=label,
                           reconstruction_target=reconstruction_target)
 
-            print(result)
+            # print(result)

@@ -13,8 +13,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Capsule layer."""
-
 import numpy as np
 import torch
 import torch.nn as nn
@@ -26,64 +24,6 @@ from torch_scae import cv_ops, math_ops
 from torch_scae import nn_ext
 from torch_scae.general_utils import prod
 from torch_scae.math_ops import l2_loss
-
-
-class CapsuleObjectDecoder(nn.Module):
-    def __init__(self, capsule_layer):
-        """
-
-        Args:
-          capsule_layer: a capsule layer.
-        """
-        super().__init__()
-        self.capsule_layer = capsule_layer
-
-        self.dummy_vote = nn.Parameter(
-            torch.zeros(1, 1, capsule_layer.n_votes, capsule_layer.n_transform_params),
-            requires_grad=True
-        )
-
-    @property
-    def n_obj_capsules(self):
-        return self.capsule_layer.n_caps
-
-    def forward(self, obj_encoding, part_pose, part_presence=None):
-        """Builds the module.
-
-        Args:
-          obj_encoding: Tensor of shape [B, O, D].
-          part_pose: Tensor of shape [B, M, P]
-          part_presence: Tensor of shape [B, M] or None; if it exists, it
-            indicates which input parts exist.
-
-        Returns:
-          A bunch of stuff.
-        """
-        device = next(iter(self.parameters())).device
-
-        batch_size, n_caps = obj_encoding.shape[:2]
-        n_votes = part_pose.shape[1]
-
-        res = self.capsule_layer(obj_encoding)
-        # remove homogeneous coord row from transformation matrices
-        res.vote = res.vote[..., :-1, :].view(batch_size, n_caps, n_votes, -1)
-
-        likelihood = CapsuleLikelihood(
-            vote=res.vote,
-            scale=res.scale,
-            vote_presence_prob=res.vote_presence,
-            dummy_vote=self.dummy_vote
-        )
-        ll_res = likelihood(part_pose, presence=part_presence)
-        res.update(ll_res)
-        del likelihood
-
-        res.caps_presence_prob = torch.max(
-            res.vote_presence.view(batch_size, n_caps, n_votes),
-            2
-        )[0]
-
-        return res
 
 
 class CapsuleLayer(nn.Module):
@@ -179,8 +119,7 @@ class CapsuleLayer(nn.Module):
         )
 
     def forward(self, feature, parent_transform=None, parent_presence=None):
-        """Builds the module.
-
+        """
         Args:
           feature: Tensor of encodings of shape [B, O, F].
           parent_transform: Tuple of (matrix, vector).
@@ -336,20 +275,18 @@ class CapsuleLikelihood(nn.Module):
         expanded_x = x.unsqueeze(1)  # (B, 1, M, P)
         vote_log_prob_per_dim = vote_component_pdf.log_prob(expanded_x)  # (B, O, M, P)
         vote_log_prob = vote_log_prob_per_dim.sum(-1)  # (B, O, M)
-        del vote_log_prob_per_dim
-        del x
-        del expanded_x
+        del x, expanded_x, vote_log_prob_per_dim
 
         # (B, 1, M)
         dummy_vote_log_prob = torch.zeros(
-            batch_size, 1, n_input_points, device=device) - 2. * np.log(10.)
+            batch_size, 1, n_input_points, device=device) + np.log(0.01)
 
         # (B, O+1, M)
         vote_log_prob = torch.cat([vote_log_prob, dummy_vote_log_prob], 1)
         del dummy_vote_log_prob
 
         #
-        dummy_logit = torch.zeros(batch_size, 1, 1, device=device) - 2. * np.log(10.)
+        dummy_logit = torch.zeros(batch_size, 1, 1, device=device) + np.log(0.01)
         dummy_logit = dummy_logit.repeat(1, 1, n_input_points)  # (B, 1, M)
 
         mixing_logit = math_ops.log_safe(self.vote_presence_prob)  # (B, O, M)
@@ -399,47 +336,105 @@ class CapsuleLikelihood(nn.Module):
         assert winning_presence.shape == (batch_size, n_input_points)
         del idx
 
+        # mask for votes which are better than dummy vote
         # (B, O, M)
         vote_presence = mixing_logit[:, :-1] > mixing_logit[:, -1:]
 
+        # Soft winner. START
         # (B, O+1, M)
         posterior_mixing_prob = F.softmax(posterior_mixing_logits_per_point, 1)
         del posterior_mixing_logits_per_point
 
         dummy_vote = self.dummy_vote.repeat(batch_size, 1, 1, 1)  # (B, 1, M, P)
-        dummy_pres = torch.zeros([batch_size, 1, n_input_points], device=device)
+        dummy_presence = torch.zeros([batch_size, 1, n_input_points], device=device)
 
         votes = torch.cat((self.vote, dummy_vote), 1)  # (B, O+1, M, P)
-        presence = torch.cat([self.vote_presence_prob, dummy_pres], 1)  # (B, O+1, M)
+        presence = torch.cat([self.vote_presence_prob, dummy_presence], 1)  # (B, O+1, M)
         del dummy_vote
-        del dummy_pres
+        del dummy_presence
 
         # (B, M, P)
-        soft_winner = torch.sum(posterior_mixing_prob.unsqueeze(-1) * votes, 1)
-        assert soft_winner.shape == (batch_size, n_input_points, dim_in)
+        soft_winner_vote = torch.sum(posterior_mixing_prob.unsqueeze(-1) * votes, 1)
+        assert soft_winner_vote.shape == (batch_size, n_input_points, dim_in)
 
         # (B, M)
         soft_winner_presence = torch.sum(posterior_mixing_prob * presence, 1)
         assert soft_winner_presence.shape == (batch_size, n_input_points)
+        # Soft winner. END
 
         # (B, M, O)
         posterior_mixing_prob = posterior_mixing_prob[:, :-1].transpose(1, 2)
-
-        # the first four votes belong to the square
-        is_from_capsule = winning_vote_idx // self.n_votes
 
         return AttrDict(
             log_prob=mixture_log_prob_per_batch,
             vote_presence=vote_presence.float(),
             winner=winning_vote,
             winner_presence=winning_presence,
-            soft_winner=soft_winner,
+            soft_winner=soft_winner_vote,
             soft_winner_presence=soft_winner_presence,
             posterior_mixing_prob=posterior_mixing_prob,
             mixing_log_prob=mixing_log_prob,
             mixing_logit=mixing_logit,
-            is_from_capsule=is_from_capsule,
         )
+
+
+class CapsuleObjectDecoder(nn.Module):
+    def __init__(self, capsule_layer: CapsuleLayer):
+        """
+        Args:
+          capsule_layer: a capsule layer to predict object parameters
+        """
+        super().__init__()
+        self.capsule_layer = capsule_layer
+
+        self.dummy_vote = nn.Parameter(
+            torch.zeros(1, 1, capsule_layer.n_votes, capsule_layer.n_transform_params),
+            requires_grad=True
+        )
+
+    @property
+    def n_obj_capsules(self):
+        return self.capsule_layer.n_caps
+
+    def forward(self,
+                obj_encoding: torch.Tensor,
+                part_pose: torch.Tensor,
+                part_presence: torch.Tensor = None):
+        """
+        Args:
+          obj_encoding: Tensor of shape [B, O, D].
+          part_pose: Tensor of shape [B, M, P]
+          part_presence: Tensor of shape [B, M] or None; if it exists, it
+            indicates which input parts exist.
+
+        Returns:
+          A bunch of stuff.
+        """
+        device = next(iter(self.parameters())).device
+
+        batch_size, n_caps = obj_encoding.shape[:2]
+        n_votes = part_pose.shape[1]
+
+        res = self.capsule_layer(obj_encoding)
+        # remove homogeneous coord row from transformation matrices
+        res.vote = res.vote[..., :-1, :].view(batch_size, n_caps, n_votes, -1)
+
+        likelihood = CapsuleLikelihood(
+            vote=res.vote,
+            scale=res.scale,
+            vote_presence_prob=res.vote_presence,
+            dummy_vote=self.dummy_vote
+        )
+        ll_res = likelihood(part_pose, presence=part_presence)
+        res.update(ll_res)
+        del likelihood
+
+        res.caps_presence_prob = torch.max(
+            res.vote_presence.view(batch_size, n_caps, n_votes),
+            2
+        )[0]
+
+        return res
 
 
 # prior sparsity loss

@@ -110,9 +110,6 @@ class CapsuleLikelihoodTestCase(unittest.TestCase):
         self.assertTrue(
             result.mixing_log_prob.shape == (B, O + 1, V)
         )
-        self.assertTrue(
-            result.is_from_capsule.shape == (B, V)
-        )
 
 
 class CapsuleObjectDecoderTestCase(unittest.TestCase):
@@ -191,9 +188,6 @@ class CapsuleObjectDecoderTestCase(unittest.TestCase):
         )
         self.assertTrue(
             result.mixing_log_prob.shape == (B, O + 1, V)
-        )
-        self.assertTrue(
-            result.is_from_capsule.shape == (B, V)
         )
         self.assertTrue(
             result.caps_presence_prob.shape == (B, O)
