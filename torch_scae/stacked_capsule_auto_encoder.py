@@ -32,41 +32,41 @@ class SCAE(nn.Module):
             posterior_between_example_sparsity_weight=0.,
             part_caps_sparsity_weight=0.,
     ):
-
         super().__init__()
-        self._part_encoder = part_encoder
-        self._template_generator = template_generator
-        self._part_decoder = part_decoder
-        self._obj_encoder = obj_encoder
-        self._obj_decoder = obj_decoder
 
-        self._n_classes = n_classes
+        self.part_encoder = part_encoder
+        self.template_generator = template_generator
+        self.part_decoder = part_decoder
+        self.obj_encoder = obj_encoder
+        self.obj_decoder = obj_decoder
 
-        self._vote_type = vote_type
-        self._presence_type = presence_type
+        self.n_classes = n_classes
 
-        self._stop_grad_caps_input = stop_grad_caps_input
-        self._stop_grad_caps_target = stop_grad_caps_target
+        self.vote_type = vote_type
+        self.presence_type = presence_type
+
+        self.stop_grad_caps_input = stop_grad_caps_input
+        self.stop_grad_caps_target = stop_grad_caps_target
 
         if n_classes:
-            self._prior_cls_probe = ClassificationProbe(
+            self.prior_cls_probe = ClassificationProbe(
                 obj_decoder.n_obj_capsules, n_classes)
-            self._posterior_cls_probe = ClassificationProbe(
+            self.posterior_cls_probe = ClassificationProbe(
                 obj_decoder.n_obj_capsules, n_classes)
         else:
-            self._prior_cls_probe = None
-            self._posterior_cls_probe = None
+            self.prior_cls_probe = None
+            self.posterior_cls_probe = None
 
-        self._cpr_dynamic_reg_weight = cpr_dynamic_reg_weight
-        self._caps_ll_weight = caps_ll_weight
-        self._prior_sparsity_loss_type = prior_sparsity_loss_type
-        self._prior_within_example_sparsity_weight = prior_within_example_sparsity_weight
-        self._prior_between_example_sparsity_weight = prior_between_example_sparsity_weight
-        self._prior_within_example_constant = prior_within_example_constant
-        self._posterior_sparsity_loss_type = posterior_sparsity_loss_type
-        self._posterior_within_example_sparsity_weight = posterior_within_example_sparsity_weight
-        self._posterior_between_example_sparsity_weight = posterior_between_example_sparsity_weight
-        self._part_caps_sparsity_weight = part_caps_sparsity_weight
+        self.cpr_dynamic_reg_weight = cpr_dynamic_reg_weight
+        self.caps_ll_weight = caps_ll_weight
+        self.prior_sparsity_loss_type = prior_sparsity_loss_type
+        self.prior_within_example_sparsity_weight = prior_within_example_sparsity_weight
+        self.prior_between_example_sparsity_weight = prior_between_example_sparsity_weight
+        self.prior_within_example_constant = prior_within_example_constant
+        self.posterior_sparsity_loss_type = posterior_sparsity_loss_type
+        self.posterior_within_example_sparsity_weight = posterior_within_example_sparsity_weight
+        self.posterior_between_example_sparsity_weight = posterior_between_example_sparsity_weight
+        self.part_caps_sparsity_weight = part_caps_sparsity_weight
 
     def forward(self, image, label=None, reconstruction_target=None):
         if reconstruction_target is None:
@@ -75,11 +75,11 @@ class SCAE(nn.Module):
         batch_size = image.shape[0]
 
         # Encode parts from the image
-        part_enc_res = self._part_encoder(image)
+        part_enc_res = self.part_encoder(image)
 
         # Generate templates
-        template_res = self._template_generator(feature=part_enc_res.feature,
-                                                batch_size=batch_size)
+        template_res = self.template_generator(feature=part_enc_res.feature,
+                                               batch_size=batch_size)
         templates = template_res.templates
         del template_res.raw_templates, template_res
 
@@ -90,7 +90,7 @@ class SCAE(nn.Module):
         )
         input_presence = part_enc_res.presence
 
-        if self._stop_grad_caps_input:
+        if self.stop_grad_caps_input:
             input_part_param = input_part_param.detach()
             input_presence = input_presence.detach()
 
@@ -99,56 +99,56 @@ class SCAE(nn.Module):
             input_part_param = torch.cat([input_part_param, part_enc_res.feature], -1)
 
         input_templates = templates
-        if self._stop_grad_caps_input:
+        if self.stop_grad_caps_input:
             input_templates = templates.detach()
         input_templates = input_templates.view(*input_templates.shape[:2], -1)
 
         parts_with_templates = torch.cat([input_part_param, input_templates], -1)
 
-        obj_encoding = self._obj_encoder(parts_with_templates, input_presence)
+        obj_encoding = self.obj_encoder(parts_with_templates, input_presence)
         del input_part_param, input_templates, parts_with_templates, input_presence
 
         # Decode parts poses and presences from object encoding
         target_pose, target_presence = part_enc_res.pose, part_enc_res.presence
-        if self._stop_grad_caps_target:
+        if self.stop_grad_caps_target:
             target_pose = target_pose.detach()
             target_presence = target_presence.detach()
 
-        res = self._obj_decoder(obj_encoding, target_pose, target_presence)
+        res = self.obj_decoder(obj_encoding, target_pose, target_presence)
         del obj_encoding, target_pose, target_presence
 
         res.part_presence = part_enc_res.presence
 
         # Decode parts into reconstructions. START
-        if self._vote_type == 'enc':
+        if self.vote_type == 'enc':
             part_dec_vote = part_enc_res.pose
-        elif self._vote_type == 'soft':
+        elif self.vote_type == 'soft':
             part_dec_vote = res.soft_winner
-        elif self._vote_type == 'hard':
+        elif self.vote_type == 'hard':
             part_dec_vote = res.winner
         else:
-            raise ValueError(f'Invalid vote_type: {self._vote_type}')
+            raise ValueError(f'Invalid vote_type: {self.vote_type}')
 
-        if self._presence_type == 'enc':
+        if self.presence_type == 'enc':
             part_dec_presence = part_enc_res.presence
-        elif self._presence_type == 'soft':
+        elif self.presence_type == 'soft':
             part_dec_presence = res.soft_winner_presence
-        elif self._presence_type == 'hard':
+        elif self.presence_type == 'hard':
             part_dec_presence = res.winner_presence
         else:
-            raise ValueError(f'Invalid presence_type: {self._presence_type}')
+            raise ValueError(f'Invalid presence_type: {self.presence_type}')
 
-        res.bottom_up_rec = self._part_decoder(
+        res.bottom_up_rec = self.part_decoder(
             templates=templates,
             pose=part_enc_res.pose,
             presence=part_enc_res.presence)
 
-        res.top_down_rec = self._part_decoder(
+        res.top_down_rec = self.part_decoder(
             templates=templates,
             pose=res.winner,
             presence=part_enc_res.presence)
 
-        rec = self._part_decoder(
+        rec = self.part_decoder(
             templates=templates,
             pose=part_dec_vote,
             presence=part_dec_presence)
@@ -160,11 +160,11 @@ class SCAE(nn.Module):
         if td_feature is not None:
             td_feature = td_feature.repeat(n_obj_caps, 1, 1)
 
-        td_templates = self._template_generator(feature=td_feature).templates
+        td_templates = self.template_generator(feature=td_feature).templates
         td_pose = res.vote.view(-1, *res.vote.shape[2:])
         td_presence = res.vote_presence.view(-1, *res.vote_presence.shape[2:]) \
                       * part_enc_res.presence.repeat(n_obj_caps, 1)
-        res.top_down_per_caps_rec = self._part_decoder(
+        res.top_down_per_caps_rec = self.part_decoder(
             templates=td_templates,
             pose=td_pose,
             presence=td_presence)
@@ -188,14 +188,14 @@ class SCAE(nn.Module):
             res.rec_ll_per_pixel.shape[0], -1).sum(-1).mean()
 
         if label is not None:
-            assert self._prior_cls_probe is not None
-            assert self._posterior_cls_probe is not None
+            assert self.prior_cls_probe is not None
+            assert self.posterior_cls_probe is not None
 
-            res.prior_cls_xe, res.prior_cls_acc = self._prior_cls_probe(
+            res.prior_cls_xe, res.prior_cls_acc = self.prior_cls_probe(
                 res.caps_presence_prob.detach(), label)
 
             mass_explained_by_capsule = res.posterior_mixing_prob.sum(1)
-            res.posterior_cls_xe, res.posterior_cls_acc = self._posterior_cls_probe(
+            res.posterior_cls_xe, res.posterior_cls_acc = self.posterior_cls_probe(
                 mass_explained_by_capsule.detach(), label)
             del mass_explained_by_capsule
 
@@ -209,31 +209,31 @@ class SCAE(nn.Module):
     def loss(self, res):
         (res.prior_within_sparsity_loss,
          res.prior_between_sparsity_loss) = sparsity_loss(
-            self._prior_sparsity_loss_type,
+            self.prior_sparsity_loss_type,
             res.caps_presence_prob,
-            num_classes=self._n_classes,
-            within_example_constant=self._prior_within_example_constant)
+            num_classes=self.n_classes,
+            within_example_constant=self.prior_within_example_constant)
 
         mass_explained_by_capsule = res.posterior_mixing_prob.sum(1)
         n_points = res.posterior_mixing_prob.shape[1]
         (res.posterior_within_sparsity_loss,
          res.posterior_between_sparsity_loss) = sparsity_loss(
-            self._posterior_sparsity_loss_type,
+            self.posterior_sparsity_loss_type,
             mass_explained_by_capsule / n_points,
-            num_classes=self._n_classes)
+            num_classes=self.n_classes)
 
         loss = (
                 -res.rec_ll
-                - self._caps_ll_weight * res.log_prob
-                + self._cpr_dynamic_reg_weight * res.cpr_dynamic_reg_loss
-                + self._part_caps_sparsity_weight * res.part_caps_l1
-                + self._posterior_within_example_sparsity_weight * res.posterior_within_sparsity_loss
-                + self._posterior_between_example_sparsity_weight * res.posterior_between_sparsity_loss
-                + self._prior_within_example_sparsity_weight * res.prior_within_sparsity_loss
-                + self._prior_between_example_sparsity_weight * res.prior_between_sparsity_loss
+                - self.caps_ll_weight * res.log_prob
+                + self.cpr_dynamic_reg_weight * res.cpr_dynamic_reg_loss
+                + self.part_caps_sparsity_weight * res.part_caps_l1
+                + self.posterior_within_example_sparsity_weight * res.posterior_within_sparsity_loss
+                + self.posterior_between_example_sparsity_weight * res.posterior_between_sparsity_loss
+                + self.prior_within_example_sparsity_weight * res.prior_within_sparsity_loss
+                + self.prior_between_example_sparsity_weight * res.prior_between_sparsity_loss
         )
 
-        if self._n_classes:
+        if self.n_classes:
             loss += res.posterior_cls_xe + res.prior_cls_xe
 
         return loss
