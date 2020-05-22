@@ -1,7 +1,4 @@
 import torch
-from monty.collections import AttrDict
-
-from torch_scae.general_utils import prod
 
 __all__ = [
     'image_shape',
@@ -22,7 +19,7 @@ n_classes = 10
 n_part_caps = 40
 n_obj_caps = 32
 
-pcae_cnn_encoder = AttrDict(
+pcae_cnn_encoder = dict(
     input_shape=image_shape,
     out_channels=[128] * 4,
     kernel_sizes=[3, 3, 3, 3],
@@ -30,7 +27,7 @@ pcae_cnn_encoder = AttrDict(
     activate_final=True
 )
 
-pcae_encoder = AttrDict(
+pcae_encoder = dict(
     input_shape=image_shape,
     n_caps=n_part_caps,
     n_poses=6,
@@ -38,19 +35,19 @@ pcae_encoder = AttrDict(
     similarity_transform=False,
 )
 
-pcae_template_generator = AttrDict(
-    n_templates=pcae_encoder.n_caps,
+pcae_template_generator = dict(
+    n_templates=pcae_encoder['n_caps'],
     n_channels=image_shape[0],
     template_size=(11, 11),
     template_nonlin=torch.sigmoid,
-    dim_feature=pcae_encoder.n_special_features,
+    dim_feature=pcae_encoder['n_special_features'],
     colorize_templates=True,
     color_nonlin=torch.sigmoid,
 )
 
-pcae_decoder = AttrDict(
-    n_templates=pcae_template_generator.n_templates,
-    template_size=pcae_template_generator.template_size,
+pcae_decoder = dict(
+    n_templates=pcae_template_generator['n_templates'],
+    template_size=pcae_template_generator['template_size'],
     output_size=image_shape[1:],
     learn_output_scale=False,
     use_alpha_channel=True,
@@ -58,10 +55,14 @@ pcae_decoder = AttrDict(
 )
 
 _ocae_st_dim_in = (
-        pcae_encoder.n_poses + pcae_template_generator.dim_feature + 1 \
-        + pcae_template_generator.n_channels * prod(pcae_template_generator.template_size)
+        pcae_encoder['n_poses']
+        + pcae_template_generator['dim_feature']
+        + 1
+        + (pcae_template_generator['n_channels']
+           * pcae_template_generator['template_size'][0]
+           * pcae_template_generator['template_size'][0])
 )
-ocae_encoder_set_transformer = AttrDict(
+ocae_encoder_set_transformer = dict(
     n_layers=3,
     n_heads=1,
     dim_in=_ocae_st_dim_in,
@@ -71,10 +72,10 @@ ocae_encoder_set_transformer = AttrDict(
     layer_norm=True,
 )
 
-ocae_decoder_capsule = AttrDict(
-    n_caps=ocae_encoder_set_transformer.n_outputs,
-    dim_feature=ocae_encoder_set_transformer.dim_out,
-    n_votes=pcae_decoder.n_templates,
+ocae_decoder_capsule = dict(
+    n_caps=ocae_encoder_set_transformer['n_outputs'],
+    dim_feature=ocae_encoder_set_transformer['dim_out'],
+    n_votes=pcae_decoder['n_templates'],
     dim_caps=32,
     hidden_sizes=(128,),
     caps_dropout_rate=0.0,
@@ -85,7 +86,7 @@ ocae_decoder_capsule = AttrDict(
     similarity_transform=False,
 )
 
-scae = AttrDict(
+scae = dict(
     n_classes=n_classes,
     cpr_dynamic_reg_weight=10,
     caps_ll_weight=1.,
