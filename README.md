@@ -10,7 +10,7 @@ Please, open an issue for bugs and inconsistencies with original implementation.
 
 ### Results
 #### Image reconstructions
-After training for 5 epochs;
+After training for 5 epochs
 
 ![logo](https://raw.githubusercontent.com/bdsaglam/torch-scae/master/.resources/mnist-recons.png)
 
@@ -69,10 +69,10 @@ pcae_template_generator = dict(
     n_templates=pcae_encoder['n_caps'],
     n_channels=image_shape[0],
     template_size=(11, 11),
-    template_nonlin=torch.sigmoid,
+    template_nonlin='sigmoid',
     dim_feature=pcae_encoder['n_special_features'],
     colorize_templates=True,
-    color_nonlin=torch.sigmoid,
+    color_nonlin='sigmoid',
 )
 
 pcae_decoder = dict(
@@ -118,12 +118,12 @@ ocae_decoder_capsule = dict(
 
 scae = dict(
     n_classes=n_classes,
-    cpr_dynamic_reg_weight=10,
-    caps_ll_weight=1.,
     vote_type='enc',
     presence_type='enc',
     stop_grad_caps_input=True,
     stop_grad_caps_target=True,
+    caps_ll_weight=1.,
+    cpr_dynamic_reg_weight=10,
     prior_sparsity_loss_type='l2',
     prior_within_example_sparsity_weight=2.0,
     prior_between_example_sparsity_weight=0.35,
