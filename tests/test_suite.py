@@ -1,16 +1,13 @@
-import unittest  # second test
+import unittest
 
-from torch_scae.test_object_decoder import CapsuleLayerTestCase, CapsuleLikelihoodTestCase, CapsuleObjectDecoderTestCase
-from torch_scae.test_part_decoder import TemplateBasedImageDecoderTestCase, TemplateGeneratorTestCase
-from torch_scae.test_part_encoder import CapsuleImageEncoderTestCase
-from torch_scae.test_scae import SCAETestCase
-from torch_scae.test_set_transformer import SetTransformerTestCase
+from .test_object_decoder import CapsuleLayerTestCase, CapsuleLikelihoodTestCase, CapsuleObjectDecoderTestCase
+from .test_part_decoder import TemplateBasedImageDecoderTestCase, TemplateGeneratorTestCase
+from .test_part_encoder import CapsuleImageEncoderTestCase
+from .test_scae import SCAETestCase
+from .test_set_transformer import SetTransformerTestCase
 
 
 def suite():
-    """
-        Gather all the tests from this module in a test suite.
-    """
     test_suite = unittest.TestSuite()
     test_suite.addTest(unittest.makeSuite(CapsuleImageEncoderTestCase))
     test_suite.addTest(unittest.makeSuite(TemplateGeneratorTestCase))
@@ -24,7 +21,5 @@ def suite():
 
 
 if __name__ == '__main__':
-    mySuit = suite()
-
     runner = unittest.TextTestRunner()
-    runner.run(mySuit)
+    runner.run(suite())
