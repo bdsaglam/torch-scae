@@ -5,6 +5,7 @@ import numpy as np
 import torch
 import torchvision
 from pytorch_lightning import LightningModule, Trainer
+from torch.optim.lr_scheduler import ReduceLROnPlateau
 from torch.utils.data import DataLoader, random_split
 from torchvision import transforms
 from torchvision.datasets import MNIST
@@ -30,6 +31,9 @@ class SCAEMNIST(LightningModule):
         # optimizer args
         parser.add_argument('--learning_rate', type=float, default=1e-4)
         parser.add_argument('--weight_decay', type=float, default=0.0)
+        parser.add_argument('--use_lr_scheduler', action='store_true')
+        parser.add_argument('--lr_schedule_patience', type=int, default=10)
+        parser.add_argument('--lr_schedule_factor', type=float, default=0.1)
 
         return parser
 
@@ -39,9 +43,16 @@ class SCAEMNIST(LightningModule):
                          reconstruction_target=None)
 
     def configure_optimizers(self):
-        return torch.optim.Adam(self.parameters(),
-                                lr=self.hparams.learning_rate,
-                                weight_decay=self.hparams.weight_decay)
+        optimizer = torch.optim.Adam(self.parameters(),
+                                     lr=self.hparams.learning_rate,
+                                     weight_decay=self.hparams.weight_decay)
+        if not self.hparams.use_lr_scheduler:
+            return optimizer
+
+        scheduler = ReduceLROnPlateau(optimizer,
+                                      patience=self.hparams.lr_schedule_patience,
+                                      factor=self.hparams.lr_schedule_factor)
+        return [optimizer], [scheduler]
 
     def prepare_data(self):
         data_dir = self.hparams.data_dir
@@ -85,12 +96,11 @@ class SCAEMNIST(LightningModule):
         res = self(image=image, label=label)
         loss = self.scae.loss(res)
 
-        logs = dict(
+        log = dict(
             loss=loss.detach(),
             accuracy=res.best_cls_acc.detach(),
-
         )
-        return {'loss': loss, 'log': logs}
+        return {'loss': loss, 'log': log}
 
     def validation_step(self, batch, batch_idx):
         image, label = batch
