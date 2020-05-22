@@ -66,10 +66,10 @@ class SCAEMNIST(LightningModule):
         mnist_test = MNIST(data_dir, train=False, download=True, transform=transform)
 
         # train/val split
-        mnist_train, mnist_val = random_split(mnist_train, [59000, 1000])
+        mnist_train, mnist_val = random_split(mnist_train, [55000, 5000])
 
         # assign to use in data loaders
-        self.train_dataset = mnist_val
+        self.train_dataset = mnist_train
         self.val_dataset = mnist_val
         self.test_dataset = mnist_test
 
