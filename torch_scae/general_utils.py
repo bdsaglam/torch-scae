@@ -23,3 +23,7 @@ def get_latest_file_iteration(folder, pattern='*'):
     if len(file_itr_pairs) == 0:
         return None, None
     return max(file_itr_pairs, key=lambda t: t[1])
+
+
+def dict_from_module(module):
+    return {k: getattr(module, k) for k in module.__all__}
