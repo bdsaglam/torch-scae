@@ -174,7 +174,7 @@ class SCAE(nn.Module):
 
         res.templates = templates
         res.template_presence = part_enc_res.presence
-        res.used_templates = rec.transformed_templates
+        res.transformed_templates = rec.transformed_templates
 
         res.rec_mode = rec.pdf.mode()
         res.rec_mean = rec.pdf.mean
