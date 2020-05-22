@@ -135,19 +135,22 @@ class SCAEMNIST(LightningModule):
             recon,
             nrow=self.hparams.batch_size, pad_value=0, padding=1
         )
-        self.logger.experiment.add_image('recons', recon_grid, 0)
+        self.logger.experiment.add_image(
+            'recons', recon_grid, self.current_epoch)
 
         template_grid = torchvision.utils.make_grid(
             res.templates.cpu()[0],
-            nrow=10, pad_value=0, padding=1
+            nrow=8, pad_value=0, padding=1
         )
-        self.logger.experiment.add_image('templates', template_grid, 0)
+        self.logger.experiment.add_image(
+            'templates', template_grid, self.current_epoch)
 
         trs_template_grid = torchvision.utils.make_grid(
             res.transformed_templates.cpu()[0],
-            nrow=10, pad_value=0, padding=1
+            nrow=8, pad_value=0, padding=1
         )
-        self.logger.experiment.add_image('transformed_templates', trs_template_grid, 0)
+        self.logger.experiment.add_image(
+            'transformed_templates', trs_template_grid, self.current_epoch)
 
         return {'val_loss': avg_loss, 'log': log}
 
