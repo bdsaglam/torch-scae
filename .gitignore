@@ -1,9 +1,11 @@
-checkpoints/
 data/
 
 # Jupyter notebook checkpoints
 notebooks/
-notebooks/.ipynb_checkpoints
+*.ipynb_checkpoints/
+
+# PyTorch Lightning
+*lightning_logs/
 
 # PyCharm files
 .idea
