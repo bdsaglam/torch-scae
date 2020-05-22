@@ -1,6 +1,21 @@
 import torch
 from monty.collections import AttrDict
+
 from torch_scae.general_utils import prod
+
+__all__ = [
+    'image_shape',
+    'n_classes',
+    'n_part_caps',
+    'n_obj_caps',
+    'pcae_cnn_encoder',
+    'pcae_encoder',
+    'pcae_template_generator',
+    'pcae_decoder',
+    'ocae_encoder_set_transformer',
+    'ocae_decoder_capsule',
+    'scae',
+]
 
 image_shape = (1, 28, 28)
 n_classes = 10
