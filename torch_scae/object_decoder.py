@@ -438,7 +438,7 @@ class CapsuleObjectDecoder(nn.Module):
 # prior sparsity loss
 # l2(aggregated_prob - constant)
 def capsule_l2_loss(caps_presence_prob,
-                    num_classes: int,
+                    n_classes: int,
                     within_example_constant=None,
                     **unused_kwargs):
     """Computes l2 penalty on capsule activations."""
@@ -448,9 +448,9 @@ def capsule_l2_loss(caps_presence_prob,
     batch_size, num_caps = caps_presence_prob.shape  # B, O
 
     if within_example_constant is None:
-        within_example_constant = float(num_caps) / num_classes
+        within_example_constant = float(num_caps) / n_classes  # K / C
 
-    between_example_constant = float(batch_size) / num_classes
+    between_example_constant = float(batch_size) / n_classes  # B / C
 
     within_example = torch.mean(
         (caps_presence_prob.sum(1) - within_example_constant) ** 2)
@@ -484,8 +484,8 @@ def capsule_entropy_loss(caps_presence_prob, k=1, **unused_kwargs):
 def neg_capsule_kl(caps_presence_prob, **unused_kwargs):
     del unused_kwargs
 
-    num_caps = int(caps_presence_prob.shape[-1])
-    return capsule_entropy_loss(caps_presence_prob, k=num_caps)
+    n_caps = int(caps_presence_prob.shape[-1])
+    return capsule_entropy_loss(caps_presence_prob, k=n_caps)
 
 
 def sparsity_loss(loss_type, *args, **kwargs):

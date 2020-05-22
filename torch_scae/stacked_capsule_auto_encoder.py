@@ -20,14 +20,14 @@ class SCAE(nn.Module):
             presence_type='enc',
             stop_grad_caps_input=True,
             stop_grad_caps_target=True,
-            recon_mse_weight=1,
+            recon_mse_weight=0,
             part_caps_sparsity_weight=0.,
             cpr_dynamic_reg_weight=0.,
             caps_ll_weight=0.,
             prior_sparsity_loss_type='l2',
             prior_within_example_sparsity_weight=0.,
             prior_between_example_sparsity_weight=0.,
-            prior_within_example_constant=0.,
+            prior_within_example_constant=None,
             posterior_sparsity_loss_type='entropy',
             posterior_within_example_sparsity_weight=0.,
             posterior_between_example_sparsity_weight=0.,
@@ -195,44 +195,49 @@ class SCAE(nn.Module):
         return res
 
     def loss(self, res, reconstruction_target, label=None):
-        # image reconstruction mse loss
-        mse_per_pixel = (reconstruction_target - res.rec.pdf.mode()) ** 2
-        mse = mse_per_pixel.view(mse_per_pixel.shape[0], -1).sum(-1).mean()
-        loss = self.recon_mse_weight * mse
-
         # image reconstruction likelihood
         rec_ll_per_pixel = res.rec.pdf.log_prob(reconstruction_target)
         rec_ll = rec_ll_per_pixel.view(rec_ll_per_pixel.shape[0], -1) \
             .sum(-1).mean()
-        loss += -rec_ll
+        loss = -rec_ll
+
+        # image reconstruction mse loss
+        if self.recon_mse_weight > 0:
+            mse_per_pixel = (reconstruction_target - res.rec.pdf.mode()) ** 2
+            mse = mse_per_pixel.view(mse_per_pixel.shape[0], -1).sum(-1).mean()
+            loss += self.recon_mse_weight * mse
 
         # part capsule sparsity loss
-        part_caps_l1 = res.part_presence.sum(-1).mean()
-        loss += self.part_caps_sparsity_weight * part_caps_l1
+        if self.part_caps_sparsity_weight > 0:
+            part_caps_l1 = res.part_presence.sum(-1).mean()
+            loss += self.part_caps_sparsity_weight * part_caps_l1
 
         # capsule likelihood
         loss += -self.caps_ll_weight * res.log_prob
 
         # prior sparsity loss
-        (prior_within_sparsity_loss,
-         prior_between_sparsity_loss) = sparsity_loss(
-            self.prior_sparsity_loss_type,
-            res.caps_presence_prob,
-            num_classes=self.n_classes,
-            within_example_constant=self.prior_within_example_constant)
+        if self.prior_within_example_sparsity_weight > 0 \
+                or self.prior_between_example_sparsity_weight > 0:
+            (prior_within_sparsity_loss,
+             prior_between_sparsity_loss) = sparsity_loss(
+                self.prior_sparsity_loss_type,
+                res.caps_presence_prob,
+                n_classes=self.n_classes,
+                within_example_constant=self.prior_within_example_constant)
 
-        loss += (self.prior_within_example_sparsity_weight * prior_within_sparsity_loss
-                 + self.prior_between_example_sparsity_weight * prior_between_sparsity_loss)
+            loss += (self.prior_within_example_sparsity_weight * prior_within_sparsity_loss
+                     + self.prior_between_example_sparsity_weight * prior_between_sparsity_loss)
 
         # posterior sparsity loss
-        if self.n_classes is not None:
+        if self.prior_within_example_sparsity_weight > 0 \
+                or self.prior_between_example_sparsity_weight > 0:
             n_points = res.posterior_mixing_prob.shape[1]
             mass_explained_by_capsule = res.posterior_mixing_prob.sum(1)
             (posterior_within_sparsity_loss,
              posterior_between_sparsity_loss) = sparsity_loss(
                 self.posterior_sparsity_loss_type,
                 mass_explained_by_capsule / n_points,
-                num_classes=self.n_classes)
+                n_classes=self.n_classes)
 
             loss += (self.posterior_within_example_sparsity_weight * posterior_within_sparsity_loss
                      + self.posterior_between_example_sparsity_weight * posterior_between_sparsity_loss)

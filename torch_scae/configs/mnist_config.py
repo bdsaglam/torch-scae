@@ -86,12 +86,12 @@ ocae_decoder_capsule = dict(
 
 scae = dict(
     n_classes=n_classes,
-    cpr_dynamic_reg_weight=10,
-    caps_ll_weight=1.,
     vote_type='enc',
     presence_type='enc',
     stop_grad_caps_input=True,
     stop_grad_caps_target=True,
+    caps_ll_weight=1.,
+    cpr_dynamic_reg_weight=10,
     prior_sparsity_loss_type='l2',
     prior_within_example_sparsity_weight=2.0,
     prior_between_example_sparsity_weight=0.35,
