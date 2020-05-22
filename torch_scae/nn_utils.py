@@ -1,6 +1,9 @@
 from typing import Tuple
 
 import torch
+import torch.nn.functional as F
+
+from torch_scae import nn_ext
 
 
 def conv_output_size(in_size: int,
@@ -33,3 +36,17 @@ def measure_shape(network, input_shape, input_dtype=torch.float32):
     with torch.no_grad():
         input = torch.rand(1, *input_shape, dtype=input_dtype, device=device)
         return network(input).shape[1:]
+
+
+def choose_activation(name):
+    if name == 'sigmoid':
+        return torch.sigmoid
+    if name == 'relu1':
+        return nn_ext.relu1
+
+    act_fn = getattr(F, name, None)
+
+    if act_fn is None:
+        raise ValueError('Invalid activation function: "{}".'.format(name))
+
+    return act_fn

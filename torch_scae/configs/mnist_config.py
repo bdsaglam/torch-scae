@@ -1,5 +1,3 @@
-import torch
-
 __all__ = [
     'image_shape',
     'n_classes',
@@ -39,10 +37,10 @@ pcae_template_generator = dict(
     n_templates=pcae_encoder['n_caps'],
     n_channels=image_shape[0],
     template_size=(11, 11),
-    template_nonlin=torch.sigmoid,
+    template_nonlin='sigmoid',
     dim_feature=pcae_encoder['n_special_features'],
     colorize_templates=True,
-    color_nonlin=torch.sigmoid,
+    color_nonlin='sigmoid',
 )
 
 pcae_decoder = dict(

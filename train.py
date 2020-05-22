@@ -169,14 +169,6 @@ def train(args):
     trainer = Trainer.from_argparse_args(args)
     trainer.fit(model)
 
-    hparams = dict()
-    hparams.update(dict_from_module(mnist_config))
-    hparams.update(args.__dict__)
-
-    model = SCAEMNIST(Namespace(**hparams))
-    trainer = Trainer.from_argparse_args(args)
-    trainer.fit(model)
-
 
 def parse(argv=None):
     parser = ArgumentParser()

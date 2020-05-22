@@ -1,5 +1,5 @@
-from typing import Tuple
 import warnings
+from typing import Tuple
 
 import numpy as np
 import torch
@@ -11,6 +11,7 @@ from torch_scae import math_ops
 from torch_scae.distributions import GaussianMixture
 from torch_scae.general_utils import prod
 from torch_scae.nn_ext import relu1, MLP
+from torch_scae.nn_utils import choose_activation
 
 
 class TemplateGenerator(nn.Module):
@@ -20,19 +21,19 @@ class TemplateGenerator(nn.Module):
                  n_templates,
                  n_channels,
                  template_size,
-                 template_nonlin=relu1,
+                 template_nonlin='relu1',
                  dim_feature=None,
                  colorize_templates=False,
-                 color_nonlin=relu1):
+                 color_nonlin='relu1'):
 
         super().__init__()
         self.n_templates = n_templates
         self.template_size = template_size
         self.n_channels = n_channels
-        self.template_nonlin = template_nonlin
+        self.template_nonlin = choose_activation(template_nonlin)
         self.dim_feature = dim_feature
         self.colorize_templates = colorize_templates
-        self.color_nonlin = color_nonlin
+        self.color_nonlin = choose_activation(color_nonlin)
 
         self._build()
 

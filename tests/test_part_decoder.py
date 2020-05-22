@@ -18,8 +18,8 @@ class TemplateGeneratorTestCase(unittest.TestCase):
             dim_feature = None
 
         n_channels = image_shape[0]
-        template_nonlin = torch.sigmoid
-        color_nonlin = torch.sigmoid
+        template_nonlin = 'sigmoid'
+        color_nonlin = 'sigmoid'
 
         template_generator = TemplateGenerator(
             n_templates=n_templates,
