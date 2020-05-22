@@ -1,10 +1,10 @@
 import pathlib
 from argparse import ArgumentParser, Namespace
 
+import numpy as np
 import torch
 import torchvision
-from pytorch_lightning import Trainer
-from pytorch_lightning.core.lightning import LightningModule
+from pytorch_lightning import LightningModule, Trainer
 from torch.utils.data import DataLoader, random_split
 from torchvision import transforms
 from torchvision.datasets import MNIST
@@ -98,17 +98,16 @@ class SCAEMNIST(LightningModule):
         res = self(image=image, label=label)
         loss = self.scae.loss(res)
 
-        # logs = dict(
-        #     loss=loss,
-        #     accuracy=res.best_cls_acc,
-        # )
-        # return {'val_loss': loss, 'accuracy': res.best_cls_acc}
-        return {'val_loss': loss, 'result': res}
+        out = {'val_loss': loss, 'accuracy': res.best_cls_acc}
+
+        if batch_idx == 0:
+            out['result'] = res
+        return out
 
     def validation_epoch_end(self, outputs):
         avg_loss = torch.stack([x['val_loss'] for x in outputs]).mean()
-        avg_acc = torch.stack([x['result']['best_cls_acc'] for x in outputs]).mean()
-        tensorboard_logs = {'val_loss': avg_loss, 'val_accuracy': avg_acc}
+        avg_acc = torch.stack([x['accuracy'] for x in outputs]).mean()
+        log = {'val_loss': avg_loss, 'val_accuracy': avg_acc}
 
         res = outputs[0]['result']
 
@@ -134,7 +133,7 @@ class SCAEMNIST(LightningModule):
         )
         self.logger.experiment.add_image('transformed_templates', trs_template_grid, 0)
 
-        return {'val_loss': avg_loss, 'log': tensorboard_logs}
+        return {'val_loss': avg_loss, 'log': log}
 
     def test_step(self, batch, batch_idx):
         image, label = batch
@@ -142,20 +141,34 @@ class SCAEMNIST(LightningModule):
         res = self(image=image, label=label)
         loss = self.scae.loss(res)
 
-        # logs = dict(
-        #     loss=loss,
-        #     accuracy=res.best_cls_acc,
-        # )
-        return {'test_loss': loss, 'test': res.best_cls_acc}
+        return {'test_loss': loss, 'accuracy': res.best_cls_acc}
 
     def test_epoch_end(self, outputs):
         avg_loss = torch.stack([x['test_loss'] for x in outputs]).mean()
         avg_acc = torch.stack([x['accuracy'] for x in outputs]).mean()
-        tensorboard_logs = {'test_loss': avg_loss, 'test_accuracy': avg_acc}
-        return {'test_loss': avg_loss, 'log': tensorboard_logs}
+        log = {'test_loss': avg_loss, 'test_accuracy': avg_acc}
+        return {'test_loss': avg_loss, 'log': log}
 
 
-if __name__ == '__main__':
+def train(args):
+    hparams = dict()
+    hparams.update(dict_from_module(mnist_config))
+    hparams.update(args.__dict__)
+
+    model = SCAEMNIST(Namespace(**hparams))
+    trainer = Trainer.from_argparse_args(args)
+    trainer.fit(model)
+
+    hparams = dict()
+    hparams.update(dict_from_module(mnist_config))
+    hparams.update(args.__dict__)
+
+    model = SCAEMNIST(Namespace(**hparams))
+    trainer = Trainer.from_argparse_args(args)
+    trainer.fit(model)
+
+
+def parse(argv=None):
     parser = ArgumentParser()
 
     # add model specific args
@@ -165,12 +178,14 @@ if __name__ == '__main__':
     # ie: now --gpus --num_nodes ... --fast_dev_run all work in the cli
     parser = Trainer.add_argparse_args(parser)
 
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
 
-    hparams = dict()
-    hparams.update(dict_from_module(mnist_config))
-    hparams.update(args.__dict__)
+    return args
 
-    model = SCAEMNIST(Namespace(**hparams))
-    trainer = Trainer.from_argparse_args(args)
-    trainer.fit(model)
+
+if __name__ == '__main__':
+    SEED = 0
+    torch.manual_seed(SEED)
+    np.random.seed(SEED)
+
+    train(parse())
