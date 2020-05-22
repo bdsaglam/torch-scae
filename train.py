@@ -37,10 +37,8 @@ class SCAEMNIST(LightningModule):
 
         return parser
 
-    def forward(self, image, label=None):
-        return self.scae(image=image,
-                         label=label,
-                         reconstruction_target=None)
+    def forward(self, image):
+        return self.scae(image=image)
 
     def configure_optimizers(self):
         optimizer = torch.optim.Adam(self.parameters(),
@@ -68,10 +66,10 @@ class SCAEMNIST(LightningModule):
         mnist_test = MNIST(data_dir, train=False, download=True, transform=transform)
 
         # train/val split
-        mnist_train, mnist_val = random_split(mnist_train, [55000, 5000])
+        mnist_train, mnist_val = random_split(mnist_train, [59000, 1000])
 
         # assign to use in data loaders
-        self.train_dataset = mnist_train
+        self.train_dataset = mnist_val
         self.val_dataset = mnist_val
         self.test_dataset = mnist_test
 
@@ -92,23 +90,31 @@ class SCAEMNIST(LightningModule):
 
     def training_step(self, batch, batch_idx):
         image, label = batch
+        reconstruction_target = image
 
-        res = self(image=image, label=label)
-        loss = self.scae.loss(res)
+        res = self(image=image)
+        loss = self.scae.loss(res,
+                              reconstruction_target=reconstruction_target,
+                              label=label)
+        accuracy = self.scae.calculate_accuracy(res, label)
 
         log = dict(
             loss=loss.detach(),
-            accuracy=res.best_cls_acc.detach(),
+            accuracy=accuracy.detach(),
         )
         return {'loss': loss, 'log': log}
 
     def validation_step(self, batch, batch_idx):
         image, label = batch
+        reconstruction_target = image
 
-        res = self(image=image, label=label)
-        loss = self.scae.loss(res)
+        res = self(image=image)
+        loss = self.scae.loss(res,
+                              reconstruction_target=reconstruction_target,
+                              label=label)
+        accuracy = self.scae.calculate_accuracy(res, label)
 
-        out = {'val_loss': loss, 'accuracy': res.best_cls_acc}
+        out = {'val_loss': loss, 'accuracy': accuracy}
 
         if batch_idx == 0:
             out['result'] = res
@@ -121,7 +127,7 @@ class SCAEMNIST(LightningModule):
 
         res = outputs[0]['result']
 
-        recon = torch.cat([res.rec_mean.cpu(),
+        recon = torch.cat([res.rec.pdf.mean.cpu(),
                            res.bottom_up_rec.pdf.mean.cpu(),
                            res.top_down_rec.pdf.mean.cpu()],
                           0)
@@ -147,11 +153,15 @@ class SCAEMNIST(LightningModule):
 
     def test_step(self, batch, batch_idx):
         image, label = batch
+        reconstruction_target = image
 
-        res = self(image=image, label=label)
-        loss = self.scae.loss(res)
+        res = self(image=image)
+        loss = self.scae.loss(res,
+                              reconstruction_target=reconstruction_target,
+                              label=label)
+        accuracy = self.scae.calculate_accuracy(res, label)
 
-        return {'test_loss': loss, 'accuracy': res.best_cls_acc}
+        return {'test_loss': loss, 'accuracy': accuracy}
 
     def test_epoch_end(self, outputs):
         avg_loss = torch.stack([x['test_loss'] for x in outputs]).mean()

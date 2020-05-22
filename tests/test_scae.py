@@ -43,8 +43,8 @@ class SCAETestCase(unittest.TestCase):
             label = torch.randint(0, config.n_classes, (batch_size,))
             reconstruction_target = image
 
-            result = scae(image=image,
-                          label=label,
-                          reconstruction_target=reconstruction_target)
+            res = scae(image=image)
+            loss = scae.loss(res, reconstruction_target, label)
+            accuracy = scae.calculate_accuracy(res, label)
 
-            # print(result)
+            # print(res)

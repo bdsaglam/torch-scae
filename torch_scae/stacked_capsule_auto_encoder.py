@@ -3,7 +3,6 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from torch_scae.object_decoder import sparsity_loss
-from torch_scae.probes import ClassificationProbe
 
 
 class SCAE(nn.Module):
@@ -21,6 +20,8 @@ class SCAE(nn.Module):
             presence_type='enc',
             stop_grad_caps_input=True,
             stop_grad_caps_target=True,
+            recon_mse_weight=1,
+            part_caps_sparsity_weight=0.,
             cpr_dynamic_reg_weight=0.,
             caps_ll_weight=0.,
             prior_sparsity_loss_type='l2',
@@ -30,7 +31,6 @@ class SCAE(nn.Module):
             posterior_sparsity_loss_type='entropy',
             posterior_within_example_sparsity_weight=0.,
             posterior_between_example_sparsity_weight=0.,
-            part_caps_sparsity_weight=0.,
     ):
         super().__init__()
 
@@ -49,16 +49,21 @@ class SCAE(nn.Module):
         self.stop_grad_caps_target = stop_grad_caps_target
 
         if n_classes:
-            self.prior_cls_probe = ClassificationProbe(
-                obj_decoder.n_obj_capsules, n_classes)
-            self.posterior_cls_probe = ClassificationProbe(
-                obj_decoder.n_obj_capsules, n_classes)
+            self.prior_classifier = nn.Sequential(
+                nn.Linear(obj_decoder.n_obj_capsules, n_classes),
+                nn.Softmax(-1),
+            )
+            self.posterior_classifier = nn.Sequential(
+                nn.Linear(obj_decoder.n_obj_capsules, n_classes),
+                nn.Softmax(-1),
+            )
         else:
-            self.prior_cls_probe = None
-            self.posterior_cls_probe = None
+            self.prior_classifier = None
+            self.posterior_classifier = None
 
         self.cpr_dynamic_reg_weight = cpr_dynamic_reg_weight
         self.caps_ll_weight = caps_ll_weight
+        self.recon_mse_weight = recon_mse_weight
         self.prior_sparsity_loss_type = prior_sparsity_loss_type
         self.prior_within_example_sparsity_weight = prior_within_example_sparsity_weight
         self.prior_between_example_sparsity_weight = prior_between_example_sparsity_weight
@@ -68,10 +73,7 @@ class SCAE(nn.Module):
         self.posterior_between_example_sparsity_weight = posterior_between_example_sparsity_weight
         self.part_caps_sparsity_weight = part_caps_sparsity_weight
 
-    def forward(self, image, label=None, reconstruction_target=None):
-        if reconstruction_target is None:
-            reconstruction_target = image
-
+    def forward(self, image):
         batch_size = image.shape[0]
 
         # Encode parts from the image
@@ -148,7 +150,7 @@ class SCAE(nn.Module):
             pose=res.winner,
             presence=part_enc_res.presence)
 
-        rec = self.part_decoder(
+        res.rec = self.part_decoder(
             templates=templates,
             pose=part_dec_vote,
             presence=part_dec_presence)
@@ -174,66 +176,87 @@ class SCAE(nn.Module):
 
         res.templates = templates
         res.template_presence = part_enc_res.presence
-        res.transformed_templates = rec.transformed_templates
+        res.transformed_templates = res.rec.transformed_templates
 
-        res.rec_mode = rec.pdf.mode()
-        res.rec_mean = rec.pdf.mean
+        if self.n_classes is not None:
+            assert self.prior_classifier is not None
+            assert self.posterior_classifier is not None
 
-        res.mse_per_pixel = (reconstruction_target - res.rec_mode) ** 2
-        res.mse = res.mse_per_pixel.view(
-            res.mse_per_pixel.shape[0], -1).sum(-1).mean()
-
-        res.rec_ll_per_pixel = rec.pdf.log_prob(reconstruction_target)
-        res.rec_ll = res.rec_ll_per_pixel.view(
-            res.rec_ll_per_pixel.shape[0], -1).sum(-1).mean()
-
-        if label is not None:
-            assert self.prior_cls_probe is not None
-            assert self.posterior_cls_probe is not None
-
-            res.prior_cls_xe, res.prior_cls_acc = self.prior_cls_probe(
-                res.caps_presence_prob.detach(), label)
+            res.prior_cls_prob = self.prior_classifier(
+                res.caps_presence_prob.detach())
+            res.prior_cls_pred = res.prior_cls_prob.argmax(-1)
 
             mass_explained_by_capsule = res.posterior_mixing_prob.sum(1)
-            res.posterior_cls_xe, res.posterior_cls_acc = self.posterior_cls_probe(
-                mass_explained_by_capsule.detach(), label)
+            res.posterior_cls_prob = self.prior_classifier(
+                mass_explained_by_capsule.detach())
+            res.posterior_cls_pred = res.posterior_cls_prob.argmax(-1)
             del mass_explained_by_capsule
-
-            res.best_cls_acc = torch.max(res.prior_cls_acc,
-                                         res.posterior_cls_acc)
-
-        res.part_caps_l1 = res.part_presence.sum(-1).mean()
 
         return res
 
-    def loss(self, res):
-        (res.prior_within_sparsity_loss,
-         res.prior_between_sparsity_loss) = sparsity_loss(
+    def loss(self, res, reconstruction_target, label=None):
+        # image reconstruction mse loss
+        mse_per_pixel = (reconstruction_target - res.rec.pdf.mode()) ** 2
+        mse = mse_per_pixel.view(mse_per_pixel.shape[0], -1).sum(-1).mean()
+        loss = self.recon_mse_weight * mse
+
+        # image reconstruction likelihood
+        rec_ll_per_pixel = res.rec.pdf.log_prob(reconstruction_target)
+        rec_ll = rec_ll_per_pixel.view(rec_ll_per_pixel.shape[0], -1) \
+            .sum(-1).mean()
+        loss += -rec_ll
+
+        # part capsule sparsity loss
+        part_caps_l1 = res.part_presence.sum(-1).mean()
+        loss += self.part_caps_sparsity_weight * part_caps_l1
+
+        # capsule likelihood
+        loss += -self.caps_ll_weight * res.log_prob
+
+        # prior sparsity loss
+        (prior_within_sparsity_loss,
+         prior_between_sparsity_loss) = sparsity_loss(
             self.prior_sparsity_loss_type,
             res.caps_presence_prob,
             num_classes=self.n_classes,
             within_example_constant=self.prior_within_example_constant)
 
-        mass_explained_by_capsule = res.posterior_mixing_prob.sum(1)
-        n_points = res.posterior_mixing_prob.shape[1]
-        (res.posterior_within_sparsity_loss,
-         res.posterior_between_sparsity_loss) = sparsity_loss(
-            self.posterior_sparsity_loss_type,
-            mass_explained_by_capsule / n_points,
-            num_classes=self.n_classes)
+        loss += (self.prior_within_example_sparsity_weight * prior_within_sparsity_loss
+                 + self.prior_between_example_sparsity_weight * prior_between_sparsity_loss)
 
-        loss = (
-                -res.rec_ll
-                - self.caps_ll_weight * res.log_prob
-                + self.cpr_dynamic_reg_weight * res.cpr_dynamic_reg_loss
-                + self.part_caps_sparsity_weight * res.part_caps_l1
-                + self.posterior_within_example_sparsity_weight * res.posterior_within_sparsity_loss
-                + self.posterior_between_example_sparsity_weight * res.posterior_between_sparsity_loss
-                + self.prior_within_example_sparsity_weight * res.prior_within_sparsity_loss
-                + self.prior_between_example_sparsity_weight * res.prior_between_sparsity_loss
-        )
+        # posterior sparsity loss
+        if self.n_classes is not None:
+            n_points = res.posterior_mixing_prob.shape[1]
+            mass_explained_by_capsule = res.posterior_mixing_prob.sum(1)
+            (posterior_within_sparsity_loss,
+             posterior_between_sparsity_loss) = sparsity_loss(
+                self.posterior_sparsity_loss_type,
+                mass_explained_by_capsule / n_points,
+                num_classes=self.n_classes)
 
-        if self.n_classes:
-            loss += res.posterior_cls_xe + res.prior_cls_xe
+            loss += (self.posterior_within_example_sparsity_weight * posterior_within_sparsity_loss
+                     + self.posterior_between_example_sparsity_weight * posterior_between_sparsity_loss)
+
+        # object capsule regularization losses
+        loss += self.cpr_dynamic_reg_weight * res.cpr_dynamic_reg_loss
+
+        # classification losses
+        if label is not None:
+            assert self.n_classes is not None
+
+            prior_cls_xe = F.cross_entropy(res.prior_cls_prob, target=label)
+            posterior_cls_xe = F.cross_entropy(res.posterior_cls_prob, target=label)
+
+            loss += prior_cls_xe + posterior_cls_xe
 
         return loss
+
+    def calculate_accuracy(self, res, label):
+        prior_pred = res.prior_cls_prob.argmax(-1)
+        prior_cls_acc = (prior_pred == label).float().mean()
+
+        posterior_pred = res.posterior_cls_prob.argmax(-1)
+        posterior_cls_acc = (posterior_pred == label).float().mean()
+
+        best_cls_acc = torch.max(prior_cls_acc, posterior_cls_acc)
+        return best_cls_acc
