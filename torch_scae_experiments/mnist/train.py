@@ -12,7 +12,6 @@ from torchvision.datasets import MNIST
 
 from torch_scae import factory
 from torch_scae.general_utils import dict_from_module
-from torch_scae_experiments.mnist import config
 
 
 class SCAEMNIST(LightningModule):
@@ -203,6 +202,7 @@ def parse(argv=None):
 
 if __name__ == '__main__':
     import sys
+    from torch_scae_experiments.mnist import config
 
     SEED = 0
     torch.manual_seed(SEED)
