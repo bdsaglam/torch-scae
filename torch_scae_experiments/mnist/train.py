@@ -2,7 +2,6 @@ import math
 import pathlib
 from argparse import ArgumentParser, Namespace
 
-import numpy as np
 import torch
 import torchvision
 from pytorch_lightning import LightningModule, Trainer, seed_everything
@@ -86,6 +85,17 @@ class SCAEMNIST(LightningModule):
         return DataLoader(self.test_dataset,
                           batch_size=self.hparams.batch_size,
                           num_workers=self.hparams.num_workers)
+
+    def on_epoch_start(self):
+        if not self.hparams.use_lr_scheduler:
+            return
+
+        def get_lr(optimizer):
+            for param_group in optimizer.param_groups:
+                return param_group['lr']
+
+        current_lr = get_lr(self.trainer.optimizers[0])
+        self.logger.experiment.add_scalar('learning_rate', current_lr, self.current_epoch)
 
     def training_step(self, batch, batch_idx):
         image, label = batch
