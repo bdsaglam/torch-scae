@@ -23,7 +23,7 @@ cd torch-scae
 pip install -e .
  ```
  
-## Train with MNIST [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://github.com/bdsaglam/torch-scae/blob/master/torch_scae_experiments/mnist/train.ipynb)
+## Train with MNIST [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://colab.research.google.com/github/bdsaglam/torch-scae/blob/master/torch_scae_experiments/mnist/train.ipynb)
 
 [PyTorch Lightning](https://github.com/PyTorchLightning/pytorch-lightning) is used for training.
 
