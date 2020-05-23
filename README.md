@@ -32,7 +32,7 @@ pip install -e .
 [PyTorch Lightning](https://github.com/PyTorchLightning/pytorch-lightning) is used for training.
 
 ```bash
-python -m torch_scae_experiments.mnist_train --batch_size 32 --learning_rate 1e-4
+python -m torch_scae_experiments.mnist.train --batch_size 32 --learning_rate 1e-4
 ```
 
 ### Custom dataset

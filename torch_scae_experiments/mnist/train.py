@@ -12,7 +12,7 @@ from torchvision.datasets import MNIST
 
 from torch_scae import factory
 from torch_scae.general_utils import dict_from_module
-from torch_scae_experiments import mnist_config
+from torch_scae_experiments.mnist import config
 
 
 class SCAEMNIST(LightningModule):
@@ -210,5 +210,5 @@ if __name__ == '__main__':
 
     args = parse(sys.argv[1:])
 
-    train(model_config=Namespace(**dict_from_module(mnist_config)),
+    train(model_config=Namespace(**dict_from_module(config)),
           **vars(args))
