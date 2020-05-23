@@ -1,3 +1,4 @@
+import math
 import pathlib
 from argparse import ArgumentParser, Namespace
 
@@ -126,30 +127,34 @@ class SCAEMNIST(LightningModule):
 
         res = outputs[0]['result']
 
+        # log image reconstructions
         recon = torch.cat([res.rec.pdf.mean.cpu(),
                            res.bottom_up_rec.pdf.mean.cpu(),
                            res.top_down_rec.pdf.mean.cpu()],
                           0)
-        recon_grid = torchvision.utils.make_grid(
+        rg = torchvision.utils.make_grid(
             recon,
             nrow=self.hparams.batch_size, pad_value=0, padding=1
         )
-        self.logger.experiment.add_image(
-            'recons', recon_grid, self.current_epoch)
+        self.logger.experiment.add_image('recons', rg, self.current_epoch)
 
-        template_grid = torchvision.utils.make_grid(
-            res.templates.cpu()[0],
-            nrow=1, pad_value=0, padding=1
+        # log raw templates
+        templates = res.templates.cpu()[0]
+        n_templates = templates.shape[0]
+        nrow = int(math.sqrt(n_templates))
+        tg = torchvision.utils.make_grid(
+            templates,
+            nrow=nrow, pad_value=0, padding=1
         )
-        self.logger.experiment.add_image(
-            'templates', template_grid, self.current_epoch)
+        self.logger.experiment.add_image('templates', tg, self.current_epoch)
 
-        trs_template_grid = torchvision.utils.make_grid(
+        # log transformed templates
+        ttg = torchvision.utils.make_grid(
             res.transformed_templates.cpu()[0],
-            nrow=1, pad_value=0, padding=1
+            nrow=nrow, pad_value=0, padding=1
         )
         self.logger.experiment.add_image(
-            'transformed_templates', trs_template_grid, self.current_epoch)
+            'transformed_templates', ttg, self.current_epoch)
 
         return {'val_loss': avg_loss, 'log': log}
 
