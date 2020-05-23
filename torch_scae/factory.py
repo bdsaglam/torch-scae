@@ -1,3 +1,5 @@
+from argparse import Namespace
+
 from torch_scae.object_decoder import CapsuleLayer, CapsuleObjectDecoder
 from torch_scae.part_decoder import TemplateGenerator, TemplateBasedImageDecoder
 from torch_scae.part_encoder import CNNEncoder, CapsuleImageEncoder
@@ -6,6 +8,9 @@ from torch_scae.stacked_capsule_auto_encoder import SCAE
 
 
 def make_scae(config):
+    if isinstance(config, dict):
+        config = Namespace(**config)
+
     cnn_encoder = CNNEncoder(**config.pcae_cnn_encoder)
     part_encoder = CapsuleImageEncoder(
         encoder=cnn_encoder,
