@@ -12,7 +12,6 @@ from torchvision import transforms
 from torchvision.datasets import MNIST
 
 from torch_scae import factory
-from torch_scae.general_utils import dict_from_module
 
 
 class SCAEMNIST(LightningModule):
@@ -178,7 +177,7 @@ class SCAEMNIST(LightningModule):
 
 
 def train(model_config, **training_kwargs):
-    training_params = vars(parse())
+    training_params = vars(parse_args())
     training_params.update(training_kwargs)
 
     hparams = dict(model_config=model_config)
@@ -189,7 +188,7 @@ def train(model_config, **training_kwargs):
     trainer.fit(model)
 
 
-def parse(argv=None):
+def parse_args(argv=None):
     argv = argv or []
 
     parser = ArgumentParser()
@@ -207,13 +206,14 @@ def parse(argv=None):
 
 if __name__ == '__main__':
     import sys
-    from torch_scae_experiments.mnist import config
+    from torch_scae_experiments.mnist.config import make_config
 
     SEED = 0
     torch.manual_seed(SEED)
     np.random.seed(SEED)
 
-    args = parse(sys.argv[1:])
+    model_config = make_config()
 
-    train(model_config=Namespace(**dict_from_module(config)),
-          **vars(args))
+    args = parse_args(sys.argv[1:])
+
+    train(model_config=model_config, **vars(args))
