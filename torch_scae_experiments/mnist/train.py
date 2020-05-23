@@ -5,7 +5,7 @@ from argparse import ArgumentParser, Namespace
 import numpy as np
 import torch
 import torchvision
-from pytorch_lightning import LightningModule, Trainer
+from pytorch_lightning import LightningModule, Trainer, seed_everything
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 from torch.utils.data import DataLoader, random_split
 from torchvision import transforms
@@ -208,9 +208,7 @@ if __name__ == '__main__':
     import sys
     from torch_scae_experiments.mnist.config import make_config
 
-    SEED = 0
-    torch.manual_seed(SEED)
-    np.random.seed(SEED)
+    seed_everything(42)
 
     model_config = make_config()
 
