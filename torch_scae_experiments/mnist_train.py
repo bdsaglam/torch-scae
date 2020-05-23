@@ -12,7 +12,7 @@ from torchvision.datasets import MNIST
 
 from torch_scae import factory
 from torch_scae.general_utils import dict_from_module
-from . import mnist_config
+from torch_scae_experiments import mnist_config
 
 
 class SCAEMNIST(LightningModule):
@@ -173,15 +173,15 @@ class SCAEMNIST(LightningModule):
         return {'test_loss': avg_loss, 'log': log}
 
 
-def train(model_config, trainer_params=None):
-    if trainer_params is None:
-        trainer_params = vars(parse())
+def train(model_config, **training_kwargs):
+    training_params = vars(parse())
+    training_params.update(training_kwargs)
 
     hparams = dict(model_config=model_config)
-    hparams.update(trainer_params)
+    hparams.update(training_params)
 
     model = SCAEMNIST(Namespace(**hparams))
-    trainer = Trainer(**trainer_params)
+    trainer = Trainer(**training_params)
     trainer.fit(model)
 
 
@@ -211,4 +211,4 @@ if __name__ == '__main__':
     args = parse(sys.argv[1:])
 
     train(model_config=Namespace(**dict_from_module(mnist_config)),
-          trainer_params=vars(args))
+          **vars(args))
