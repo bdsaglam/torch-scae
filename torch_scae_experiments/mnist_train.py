@@ -140,14 +140,14 @@ class SCAEMNIST(LightningModule):
 
         template_grid = torchvision.utils.make_grid(
             res.templates.cpu()[0],
-            nrow=8, pad_value=0, padding=1
+            nrow=1, pad_value=0, padding=1
         )
         self.logger.experiment.add_image(
             'templates', template_grid, self.current_epoch)
 
         trs_template_grid = torchvision.utils.make_grid(
             res.transformed_templates.cpu()[0],
-            nrow=8, pad_value=0, padding=1
+            nrow=1, pad_value=0, padding=1
         )
         self.logger.experiment.add_image(
             'transformed_templates', trs_template_grid, self.current_epoch)
