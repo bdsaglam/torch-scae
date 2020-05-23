@@ -11,15 +11,15 @@ from torchvision import transforms
 from torchvision.datasets import MNIST
 
 from torch_scae import factory
-from torch_scae.configs import mnist_config
 from torch_scae.general_utils import dict_from_module
+from . import mnist_config
 
 
 class SCAEMNIST(LightningModule):
     def __init__(self, hparams):
         super().__init__()
         self.hparams = hparams
-        self.scae = factory.make_scae(hparams)
+        self.scae = factory.make_scae(hparams.model_config)
 
     @staticmethod
     def add_model_specific_args(parent_parser):
@@ -32,8 +32,8 @@ class SCAEMNIST(LightningModule):
         parser.add_argument('--learning_rate', type=float, default=1e-4)
         parser.add_argument('--weight_decay', type=float, default=0.0)
         parser.add_argument('--use_lr_scheduler', action='store_true')
-        parser.add_argument('--lr_schedule_patience', type=int, default=10)
-        parser.add_argument('--lr_schedule_factor', type=float, default=0.1)
+        parser.add_argument('--lr_schedule_patience', type=int, default=3)
+        parser.add_argument('--lr_schedule_factor', type=float, default=0.5)
 
         return parser
 
@@ -92,7 +92,7 @@ class SCAEMNIST(LightningModule):
         image, label = batch
         reconstruction_target = image
 
-        res = self(image=image)
+        res = self.forward(image=image)
         loss = self.scae.loss(res,
                               reconstruction_target=reconstruction_target,
                               label=label)
@@ -108,7 +108,7 @@ class SCAEMNIST(LightningModule):
         image, label = batch
         reconstruction_target = image
 
-        res = self(image=image)
+        res = self.forward(image=image)
         loss = self.scae.loss(res,
                               reconstruction_target=reconstruction_target,
                               label=label)
@@ -158,7 +158,7 @@ class SCAEMNIST(LightningModule):
         image, label = batch
         reconstruction_target = image
 
-        res = self(image=image)
+        res = self.forward(image=image)
         loss = self.scae.loss(res,
                               reconstruction_target=reconstruction_target,
                               label=label)
@@ -173,24 +173,27 @@ class SCAEMNIST(LightningModule):
         return {'test_loss': avg_loss, 'log': log}
 
 
-def train(args):
-    hparams = dict()
-    hparams.update(dict_from_module(mnist_config))
-    hparams.update(args.__dict__)
+def train(model_config, trainer_params=None):
+    if trainer_params is None:
+        trainer_params = vars(parse())
+
+    hparams = dict(model_config=model_config)
+    hparams.update(trainer_params)
 
     model = SCAEMNIST(Namespace(**hparams))
-    trainer = Trainer.from_argparse_args(args)
+    trainer = Trainer(**trainer_params)
     trainer.fit(model)
 
 
 def parse(argv=None):
+    argv = argv or []
+
     parser = ArgumentParser()
 
     # add model specific args
     parser = SCAEMNIST.add_model_specific_args(parser)
 
     # add all the available trainer options to parser
-    # ie: now --gpus --num_nodes ... --fast_dev_run all work in the cli
     parser = Trainer.add_argparse_args(parser)
 
     args = parser.parse_args(argv)
@@ -199,8 +202,13 @@ def parse(argv=None):
 
 
 if __name__ == '__main__':
+    import sys
+
     SEED = 0
     torch.manual_seed(SEED)
     np.random.seed(SEED)
 
-    train(parse())
+    args = parse(sys.argv[1:])
+
+    train(model_config=Namespace(**dict_from_module(mnist_config)),
+          trainer_params=vars(args))

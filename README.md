@@ -32,7 +32,7 @@ pip install -e .
 [PyTorch Lightning](https://github.com/PyTorchLightning/pytorch-lightning) is used for training.
 
 ```bash
-python train.py --batch_size 32 --learning_rate 1e-4
+python -m torch_scae_experiments.mnist_train --batch_size 32 --learning_rate 1e-4
 ```
 
 ### Custom dataset
@@ -41,8 +41,6 @@ You can customize the one for MNIST at ```torch_scae.configs.mnist_config```.
 
 ```python
 # your_custom_config.py
-
-import torch
 
 image_shape = (3, 32, 32)
 n_classes = 10
