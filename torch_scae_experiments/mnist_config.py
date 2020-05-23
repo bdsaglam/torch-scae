@@ -14,6 +14,7 @@ __all__ = [
 
 image_shape = (1, 28, 28)
 n_classes = 10
+
 n_part_caps = 40
 n_obj_caps = 32
 
