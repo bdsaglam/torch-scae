@@ -1,3 +1,5 @@
+
+
 # torch-scae 
 
 PyTorch implementation of [Stacked Capsule Auto-Encoders](http://arxiv.org/abs/1906.06818) \[1\].
@@ -8,17 +10,10 @@ However, some parts are refactored for ease of use.
 
 Please, open an issue for bugs and inconsistencies with original implementation.
 
-### Results
-#### Image reconstructions
-After training for 5 epochs
-
-![logo](https://raw.githubusercontent.com/bdsaglam/torch-scae/master/.resources/mnist-recons.png)
-
-*Fig 1. Rows: original image, bottom-up reconstructions and top-down reconstructions*
 
 
 ---
-### Installation   
+## Installation   
 ```bash
 # clone project   
 git clone https://github.com/bdsaglam/torch-scae   
@@ -28,16 +23,28 @@ cd torch-scae
 pip install -e .
  ```
  
-### Train on MNIST
+## Train with MNIST [![Open In Colab](https://colab.research.google.com/assets/colab-badge.svg)](https://github.com/bdsaglam/torch-scae/blob/master/torch_scae_experiments/mnist/train.ipynb)
+
 [PyTorch Lightning](https://github.com/PyTorchLightning/pytorch-lightning) is used for training.
 
 ```bash
 python -m torch_scae_experiments.mnist.train --batch_size 32 --learning_rate 1e-4
 ```
 
-### Custom dataset
-To create a model for another dataset, first create a config file. 
-You can customize the one for MNIST at ```torch_scae.configs.mnist_config```. 
+### Results
+#### Image reconstructions
+After training for 5 epochs
+
+![logo](https://raw.githubusercontent.com/bdsaglam/torch-scae/master/.resources/mnist-recons.png)
+
+*Fig 1. Rows: original image, bottom-up reconstructions and top-down reconstructions*
+
+
+## Custom dataset
+To create a model for another dataset, 
+first, make a config object either as a module or a namespace. 
+
+You can customize the one for MNIST at ```torch_scae_experiments.mnist.config```. 
 
 ```python
 # your_custom_config.py
@@ -137,6 +144,7 @@ Then, create the model with the factory method.
 from torch_scae import factory
 import your_custom_config
 
+# factory method expects a module or a namespace
 model = factory.make_scae(your_custom_config)
 ```
 
