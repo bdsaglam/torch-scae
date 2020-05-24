@@ -221,11 +221,12 @@ def parse_args(argv=None):
 
 if __name__ == '__main__':
     import sys
-    from torch_scae_experiments.mnist.config import make_config
+    from torch_scae.factory import make_config
+    from .hparams import model_params
 
     seed_everything(42)
 
-    model_config = make_config()
+    model_config = make_config(**model_params)
 
     args = parse_args(sys.argv[1:])
 
