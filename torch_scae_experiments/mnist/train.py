@@ -1,3 +1,4 @@
+import gc
 import math
 import pathlib
 from argparse import ArgumentParser, Namespace
@@ -96,6 +97,9 @@ class SCAEMNIST(LightningModule):
 
         current_lr = get_lr(self.trainer.optimizers[0])
         self.logger.experiment.add_scalar('learning_rate', current_lr, self.current_epoch)
+
+    def on_batch_end(self) -> None:
+        gc.collect()
 
     def training_step(self, batch, batch_idx):
         image, label = batch
