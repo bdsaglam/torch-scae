@@ -255,12 +255,6 @@ class CapsuleLikelihood(nn.Module):
     def _get_pdf(self, votes, scales):
         return Normal(votes, scales)
 
-    def log_prob(self, x, presence=None):
-        return self(x, presence).log_prob
-
-    def explain(self, x, presence=None):
-        return self(x, presence).winner
-
     def forward(self, x, presence=None):  # (B, M, P), (B, M)
         device = x.device
 
