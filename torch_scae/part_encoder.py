@@ -78,6 +78,7 @@ class CapsuleImageEncoder(nn.Module):
         h = self.att_conv(h)  # (B, M * (P + 1 + S + 1), G, G)
         h = multiple_attention_pooling_2d(h, self.n_caps)  # (B, M * (P + 1 + S), 1, 1)
         h = h.view(batch_size, self.n_caps, self.n_total_caps_dims)  # (B, M, (P + 1 + S))
+        del img_embedding
 
         # (B, M, P), (B, M, 1), (B, M, S)
         pose, presence_logit, special_feature = torch.split(h, self.caps_dim_splits, -1)
@@ -95,5 +96,4 @@ class CapsuleImageEncoder(nn.Module):
         pose = cv_ops.geometric_transform(pose, self.similarity_transform)  # (B, M, P)
         return AttrDict(pose=pose,
                         presence=presence_prob,
-                        feature=special_feature,
-                        img_embedding=img_embedding)
+                        feature=special_feature)
