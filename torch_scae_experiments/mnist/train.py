@@ -146,7 +146,6 @@ class SCAEMNIST(LightningModule):
         n = min(self.hparams.batch_size, 8)
         recon = torch.cat([res.image.cpu()[:n],
                            res.rec.pdf.mode().cpu()[:n],
-                           res.rec.pdf.mean().cpu()[:n],
                            res.bottom_up_rec.pdf.mode().cpu()[:n],
                            res.top_down_rec.pdf.mode().cpu()[:n]],
                           0)
