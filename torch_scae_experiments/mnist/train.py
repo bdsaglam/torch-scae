@@ -197,19 +197,19 @@ class SCAEMNIST(LightningModule):
 
 def train(model_config, **training_kwargs):
     training_params = vars(parse_args())
-    if 'save_top_k' in training_kwargs:
-        checkpoint_callback = ModelCheckpoint(
-            save_top_k=training_kwargs['save_top_k'])
-        training_params.update(checkpoint_callback=checkpoint_callback)
-        del training_kwargs['save_top_k']
-
     training_params.update(training_kwargs)
-    trainer = Trainer(**training_params)
 
     hparams = dict(model_config=model_config)
     hparams.update(training_params)
     model = SCAEMNIST(Namespace(**hparams))
 
+    if 'save_top_k' in training_params:
+        checkpoint_callback = ModelCheckpoint(
+            save_top_k=training_params['save_top_k'])
+        training_params.update(checkpoint_callback=checkpoint_callback)
+        del training_params['save_top_k']
+
+    trainer = Trainer(**training_params)
     trainer.fit(model)
 
 
