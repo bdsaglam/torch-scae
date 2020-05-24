@@ -6,6 +6,7 @@ from argparse import ArgumentParser, Namespace
 import torch
 import torchvision
 from pytorch_lightning import LightningModule, Trainer, seed_everything
+from pytorch_lightning.callbacks import ModelCheckpoint
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 from torch.utils.data import DataLoader, random_split
 from torchvision import transforms
@@ -130,6 +131,7 @@ class SCAEMNIST(LightningModule):
         out = {'val_loss': loss, 'accuracy': accuracy}
 
         if batch_idx == 0:
+            res.image = image
             out['result'] = res
         return out
 
@@ -142,9 +144,11 @@ class SCAEMNIST(LightningModule):
 
         # log image reconstructions
         n = min(self.hparams.batch_size, 8)
-        recon = torch.cat([res.rec.pdf.mean.cpu()[:n],
-                           res.bottom_up_rec.pdf.mean.cpu()[:n],
-                           res.top_down_rec.pdf.mean.cpu()[:n]],
+        recon = torch.cat([res.image.cpu()[:n],
+                           res.rec.pdf.mode().cpu()[:n],
+                           res.rec.pdf.mean().cpu()[:n],
+                           res.bottom_up_rec.pdf.mode().cpu()[:n],
+                           res.top_down_rec.pdf.mode().cpu()[:n]],
                           0)
         rg = torchvision.utils.make_grid(
             recon,
@@ -193,13 +197,19 @@ class SCAEMNIST(LightningModule):
 
 def train(model_config, **training_kwargs):
     training_params = vars(parse_args())
+    if 'save_top_k' in training_kwargs:
+        checkpoint_callback = ModelCheckpoint(
+            save_top_k=training_kwargs['save_top_k'])
+        training_params.update(checkpoint_callback=checkpoint_callback)
+        del training_kwargs['save_top_k']
+
     training_params.update(training_kwargs)
+    trainer = Trainer(**training_params)
 
     hparams = dict(model_config=model_config)
     hparams.update(training_params)
-
     model = SCAEMNIST(Namespace(**hparams))
-    trainer = Trainer(**training_params)
+
     trainer.fit(model)
 
 
@@ -213,6 +223,9 @@ def parse_args(argv=None):
 
     # add all the available trainer options to parser
     parser = Trainer.add_argparse_args(parser)
+
+    # add other args
+    parser.add_argument('--save_top_k', type=int, default=1)
 
     args = parser.parse_args(argv)
 

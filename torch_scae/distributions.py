@@ -31,11 +31,9 @@ class GaussianMixture:
     def n_components(self):
         return self.mixing_logits.shape[1]
 
-    @property
     def mixing_log_prob(self):
         return self.mixing_logits - self.mixing_logits.logsumexp(1, keepdim=True)
 
-    @property
     def mean(self):
         mixing_prob = F.softmax(self.mixing_logits, 1)
         return torch.sum(mixing_prob * self.dist.mean, 1)
@@ -43,7 +41,7 @@ class GaussianMixture:
     def log_prob(self, x):
         x = x.unsqueeze(1)
         lp = self._component_log_prob(x)
-        return torch.logsumexp(lp + self.mixing_log_prob, 1)
+        return torch.logsumexp(lp + self.mixing_log_prob(), 1)
 
     def _component_log_prob(self, x):
         lp = self.dist.log_prob(x)
@@ -62,7 +60,7 @@ class GaussianMixture:
           Mode.
         """
         dist_mode_value = self.dist.loc
-        mixing_log_prob = self.mixing_log_prob
+        mixing_log_prob = self.mixing_log_prob()
 
         if maximum:
             mixing_log_prob += self._component_log_prob(dist_mode_value)

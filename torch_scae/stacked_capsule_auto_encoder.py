@@ -140,37 +140,40 @@ class SCAE(nn.Module):
         else:
             raise ValueError(f'Invalid presence_type: {self.presence_type}')
 
-        res.bottom_up_rec = self.part_decoder(
-            templates=templates,
-            pose=part_enc_res.pose,
-            presence=part_enc_res.presence)
-
-        res.top_down_rec = self.part_decoder(
-            templates=templates,
-            pose=res.winner,
-            presence=part_enc_res.presence)
-
         res.rec = self.part_decoder(
             templates=templates,
             pose=part_dec_vote,
             presence=part_dec_presence)
 
-        #
-        n_obj_caps = res.vote.shape[1]
+        with torch.no_grad():
+            # bottom-up caps image reconstruction
+            res.bottom_up_rec = self.part_decoder(
+                templates=templates,
+                pose=part_enc_res.pose,
+                presence=part_enc_res.presence)
 
-        td_feature = part_enc_res.feature
-        if td_feature is not None:
-            td_feature = td_feature.repeat(n_obj_caps, 1, 1)
+            # top-down winner caps image reconstruction
+            res.top_down_rec = self.part_decoder(
+                templates=templates,
+                pose=res.winner,
+                presence=part_enc_res.presence)
 
-        td_templates = self.template_generator(feature=td_feature).templates
-        td_pose = res.vote.view(-1, *res.vote.shape[2:])
-        td_presence = res.vote_presence.view(-1, *res.vote_presence.shape[2:]) \
-                      * part_enc_res.presence.repeat(n_obj_caps, 1)
-        res.top_down_per_caps_rec = self.part_decoder(
-            templates=td_templates,
-            pose=td_pose,
-            presence=td_presence)
-        del td_feature, td_templates, td_pose, td_presence
+            # top-down per caps image reconstruction
+            n_obj_caps = res.vote.shape[1]
+
+            td_feature = part_enc_res.feature
+            if td_feature is not None:
+                td_feature = td_feature.repeat(n_obj_caps, 1, 1)
+
+            td_templates = self.template_generator(feature=td_feature).templates
+            td_pose = res.vote.view(-1, *res.vote.shape[2:])
+            td_presence = res.vote_presence.view(-1, *res.vote_presence.shape[2:]) \
+                          * part_enc_res.presence.repeat(n_obj_caps, 1)
+            res.top_down_per_caps_rec = self.part_decoder(
+                templates=td_templates,
+                pose=td_pose,
+                presence=td_presence)
+            del td_feature, td_templates, td_pose, td_presence
 
         # Decode parts into reconstructions. END
 
