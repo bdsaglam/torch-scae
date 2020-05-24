@@ -61,9 +61,6 @@ class CapsuleImageEncoderTestCase(unittest.TestCase):
         self.assertTrue(
             result.presence.shape == (batch_size, n_caps)
         )
-        self.assertTrue(
-            result.img_embedding.shape == (batch_size, *cnn_encoder.output_shape)
-        )
 
 
 if __name__ == '__main__':
