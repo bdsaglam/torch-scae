@@ -240,12 +240,11 @@ class CapsuleLayer(nn.Module):
                                           nonlinear=True, as_matrix=True)
 
 
-class CapsuleLikelihood(nn.Module):
+class CapsuleLikelihood:
     """Capsule voting mechanism."""
 
     def __init__(self, vote, scale, vote_presence_prob, dummy_vote):
         super().__init__()
-        self.n_votes = 1
         self.n_caps = vote.shape[1]  # O
         self.vote = vote  # (B, O, M, P)
         self.scale = scale  # (B, O, M)
@@ -255,7 +254,7 @@ class CapsuleLikelihood(nn.Module):
     def _get_pdf(self, votes, scales):
         return Normal(votes, scales)
 
-    def forward(self, x, presence=None):  # (B, M, P), (B, M)
+    def __call__(self, x, presence=None):  # (B, M, P), (B, M)
         device = x.device
 
         batch_size, n_input_points, dim_in = x.shape  # B, M, P
@@ -408,6 +407,7 @@ class CapsuleObjectDecoder(nn.Module):
 
         res = self.capsule_layer(obj_encoding)
         # remove homogeneous coord row from transformation matrices
+        # and flatten last two dimensions
         res.vote = res.vote[..., :-1, :].view(batch_size, n_caps, n_votes, -1)
 
         likelihood = CapsuleLikelihood(
