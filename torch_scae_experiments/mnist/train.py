@@ -105,7 +105,7 @@ class SCAEMNIST(LightningModule):
         image, label = batch
         reconstruction_target = image
 
-        res = self.forward(image=image)
+        res = self(image=image)
         loss = self.scae.loss(res,
                               reconstruction_target=reconstruction_target,
                               label=label)
@@ -121,7 +121,7 @@ class SCAEMNIST(LightningModule):
         image, label = batch
         reconstruction_target = image
 
-        res = self.forward(image=image)
+        res = self(image=image)
         loss = self.scae.loss(res,
                               reconstruction_target=reconstruction_target,
                               label=label)
@@ -178,7 +178,7 @@ class SCAEMNIST(LightningModule):
         image, label = batch
         reconstruction_target = image
 
-        res = self.forward(image=image)
+        res = self(image=image)
         loss = self.scae.loss(res,
                               reconstruction_target=reconstruction_target,
                               label=label)
