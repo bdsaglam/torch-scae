@@ -233,7 +233,7 @@ def parse_args(argv=None):
 if __name__ == '__main__':
     import sys
     from torch_scae.factory import make_config
-    from .hparams import model_params
+    from torch_scae_experiments.mnist.hparams import model_params
 
     seed_everything(42)
 
