@@ -161,19 +161,21 @@ class SCAE(nn.Module):
             # top-down per caps image reconstruction
             n_obj_caps = res.vote.shape[1]
 
-            td_feature = part_enc_res.feature
-            if td_feature is not None:
-                td_feature = td_feature.repeat(n_obj_caps, 1, 1)
-
-            td_templates = self.template_generator(feature=td_feature).templates
+            # tile tensors per object capsule
+            # (B, M, C, H, W) -> (B*O, M, C, H, W)
+            td_templates = templates.repeat_interleave(repeats=n_obj_caps, dim=0)
+            # (B, O, M, 6) -> (B*O, M, 6)
             td_pose = res.vote.view(-1, *res.vote.shape[2:])
-            td_presence = res.vote_presence.view(-1, *res.vote_presence.shape[2:]) \
-                          * part_enc_res.presence.repeat(n_obj_caps, 1)
+            # (B, M) -> (B*O, M)
+            td_enc_presence = part_enc_res.presence.repeat_interleave(repeats=n_obj_caps, dim=0)
+            # (B, O, M) -> (B*O, M)
+            td_dec_presence = res.vote_presence.view(-1, *res.vote_presence.shape[2:])
+            td_presence = td_enc_presence * td_dec_presence
             res.top_down_per_caps_rec = self.part_decoder(
                 templates=td_templates,
                 pose=td_pose,
                 presence=td_presence)
-            del td_feature, td_templates, td_pose, td_presence
+            del td_templates, td_pose, td_enc_presence, td_dec_presence, td_presence
 
         # Decode parts into reconstructions. END
 
