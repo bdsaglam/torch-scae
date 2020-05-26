@@ -41,11 +41,11 @@ class TemplateGenerator(nn.Module):
                  color_nonlin='relu1'):
 
         super().__init__()
-        self.n_templates = n_templates
-        self.template_size = template_size
-        self.n_channels = n_channels
+        self.n_templates = n_templates  # M
+        self.template_size = template_size  # (H, W)
+        self.n_channels = n_channels  # C
         self.template_nonlin = choose_activation(template_nonlin)
-        self.dim_feature = dim_feature
+        self.dim_feature = dim_feature  # F
         self.colorize_templates = colorize_templates
         self.color_nonlin = choose_activation(color_nonlin)
 
@@ -58,7 +58,7 @@ class TemplateGenerator(nn.Module):
         )
 
         # make each templates orthogonal to each other at init
-        n_elems = prod(template_shape[2:])  # height, width and channel
+        n_elems = prod(template_shape[2:])  # channel, height, width
         n = max(self.n_templates, n_elems)
         q = np.random.uniform(size=[n, n])
         q = np.linalg.qr(q)[0]
@@ -82,9 +82,11 @@ class TemplateGenerator(nn.Module):
         Returns:
           (B, n_templates, n_channels, *template_size) tensor.
         """
+        # (B, M, F)
         if feature is not None:
             batch_size = feature.shape[0]
 
+        # (1, M, C, H, W)
         raw_templates = self.template_nonlin(self.template_logits)
 
         if self.colorize_templates and feature is not None:
