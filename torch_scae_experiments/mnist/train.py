@@ -36,7 +36,7 @@ class SCAEMNIST(LightningModule):
         parser.add_argument('--weight_decay', type=float, default=0.0)
         parser.add_argument('--use_lr_scheduler', action='store_true')
         parser.add_argument('--lr_scheduler_step_size', type=int, default=10000)
-        parser.add_argument('--lr_decay_rate', type=float, default=0.96)
+        parser.add_argument('--lr_scheduler_decay_rate', type=float, default=0.96)
 
         return parser
 
@@ -62,7 +62,7 @@ class SCAEMNIST(LightningModule):
 
         scheduler = StepLR(optimizer=optimizer,
                            step_size=self.hparams.lr_scheduler_step_size,
-                           gamma=self.hparams.lr_decay_rate)
+                           gamma=self.hparams.lr_scheduler_decay_rate)
 
         return [optimizer], [scheduler]
 
@@ -101,16 +101,9 @@ class SCAEMNIST(LightningModule):
                           batch_size=self.hparams.batch_size,
                           num_workers=self.hparams.num_workers)
 
-    def on_epoch_start(self):
-        if not self.hparams.use_lr_scheduler:
-            return
-
-        def get_lr(optimizer):
-            for param_group in optimizer.param_groups:
-                return param_group['lr']
-
-        current_lr = get_lr(self.trainer.optimizers[0])
-        self.logger.experiment.add_scalar('learning_rate', current_lr, self.current_epoch)
+    def get_lr(self, optimizer):
+        for param_group in optimizer.param_groups:
+            return param_group['lr']
 
     def on_batch_end(self) -> None:
         gc.collect()
@@ -129,6 +122,10 @@ class SCAEMNIST(LightningModule):
             loss=loss.detach(),
             accuracy=accuracy.detach(),
         )
+        if self.hparams.use_lr_scheduler:
+            lr = self.get_lr(self.trainer.optimizers[0])
+            log.update(learning_rate=lr)
+
         return {'loss': loss, 'log': log}
 
     def validation_step(self, batch, batch_idx):
