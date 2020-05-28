@@ -33,6 +33,8 @@ class SCAEMNIST(LightningModule):
         parser.add_argument('--learning_rate', type=float, default=1e-4)
         parser.add_argument('--weight_decay', type=float, default=0.0)
         parser.add_argument('--use_lr_scheduler', action='store_true')
+        parser.add_argument('--lr_scheduler_step_size', type=int, default=10000)
+        parser.add_argument('--lr_decay_rate', type=float, default=0.96)
 
         return parser
 
@@ -55,7 +57,9 @@ class SCAEMNIST(LightningModule):
         if not self.hparams.use_lr_scheduler:
             return optimizer
 
-        scheduler = StepLR(optimizer=optimizer, step_size=10000, gamma=0.96)
+        scheduler = StepLR(optimizer=optimizer,
+                           step_size=self.hparams.lr_scheduler_step_size,
+                           gamma=self.hparams.lr_decay_rate)
 
         return [optimizer], [scheduler]
 
