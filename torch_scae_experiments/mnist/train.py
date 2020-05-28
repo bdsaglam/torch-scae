@@ -7,7 +7,7 @@ import torch
 import torchvision
 from pytorch_lightning import LightningModule, Trainer, seed_everything
 from pytorch_lightning.callbacks import ModelCheckpoint
-from torch.optim.lr_scheduler import ReduceLROnPlateau
+from torch.optim.lr_scheduler import StepLR
 from torch.utils.data import DataLoader, random_split
 from torchvision import transforms
 from torchvision.datasets import MNIST
@@ -29,11 +29,10 @@ class SCAEMNIST(LightningModule):
         parser.add_argument('--num_workers', type=int, default=1)
         parser.add_argument('--batch_size', type=int, default=32)
         # optimizer args
+        parser.add_argument('--optimizer_type', type=str, default='RMSprop')
         parser.add_argument('--learning_rate', type=float, default=1e-4)
         parser.add_argument('--weight_decay', type=float, default=0.0)
         parser.add_argument('--use_lr_scheduler', action='store_true')
-        parser.add_argument('--lr_schedule_patience', type=int, default=3)
-        parser.add_argument('--lr_schedule_factor', type=float, default=0.5)
 
         return parser
 
@@ -41,15 +40,23 @@ class SCAEMNIST(LightningModule):
         return self.scae(image=image)
 
     def configure_optimizers(self):
-        optimizer = torch.optim.Adam(self.parameters(),
-                                     lr=self.hparams.learning_rate,
-                                     weight_decay=self.hparams.weight_decay)
+        if self.hparams.optimizer_type == "RMSprop":
+            eps = 1e-2 / float(self.hparams.batch_size) ** 2
+            optimizer = torch.optim.RMSprop(self.parameters(),
+                                            lr=self.hparams.learning_rate,
+                                            momentum=0.9,
+                                            eps=eps,
+                                            weight_decay=self.hparams.weight_decay)
+        else:
+            optimizer = torch.optim.Adam(self.parameters(),
+                                         lr=self.hparams.learning_rate,
+                                         weight_decay=self.hparams.weight_decay)
+
         if not self.hparams.use_lr_scheduler:
             return optimizer
 
-        scheduler = ReduceLROnPlateau(optimizer,
-                                      patience=self.hparams.lr_schedule_patience,
-                                      factor=self.hparams.lr_schedule_factor)
+        scheduler = StepLR(optimizer=optimizer, step_size=10000, gamma=0.96)
+
         return [optimizer], [scheduler]
 
     def prepare_data(self):
