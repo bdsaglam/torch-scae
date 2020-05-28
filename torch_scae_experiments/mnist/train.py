@@ -7,7 +7,9 @@ import torch
 import torchvision
 from pytorch_lightning import LightningModule, Trainer, seed_everything
 from pytorch_lightning.callbacks import ModelCheckpoint
+from torch.optim.adam import Adam
 from torch.optim.lr_scheduler import StepLR
+from torch.optim.rmsprop import RMSprop
 from torch.utils.data import DataLoader, random_split
 from torchvision import transforms
 from torchvision.datasets import MNIST
@@ -42,17 +44,18 @@ class SCAEMNIST(LightningModule):
         return self.scae(image=image)
 
     def configure_optimizers(self):
+
         if self.hparams.optimizer_type == "RMSprop":
             eps = 1e-2 / float(self.hparams.batch_size) ** 2
-            optimizer = torch.optim.RMSprop(self.parameters(),
-                                            lr=self.hparams.learning_rate,
-                                            momentum=0.9,
-                                            eps=eps,
-                                            weight_decay=self.hparams.weight_decay)
+            optimizer = RMSprop(self.parameters(),
+                                lr=self.hparams.learning_rate,
+                                momentum=0.9,
+                                eps=eps,
+                                weight_decay=self.hparams.weight_decay)
         else:
-            optimizer = torch.optim.Adam(self.parameters(),
-                                         lr=self.hparams.learning_rate,
-                                         weight_decay=self.hparams.weight_decay)
+            optimizer = Adam(self.parameters(),
+                             lr=self.hparams.learning_rate,
+                             weight_decay=self.hparams.weight_decay)
 
         if not self.hparams.use_lr_scheduler:
             return optimizer
