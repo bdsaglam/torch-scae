@@ -8,7 +8,7 @@ import torchvision
 from pytorch_lightning import LightningModule, Trainer, seed_everything
 from pytorch_lightning.callbacks import ModelCheckpoint
 from torch.optim.adam import Adam
-from torch.optim.lr_scheduler import StepLR
+from torch.optim.lr_scheduler import ExponentialLR
 from torch.optim.rmsprop import RMSprop
 from torch.utils.data import DataLoader, random_split
 from torchvision import transforms
@@ -35,8 +35,7 @@ class SCAEMNIST(LightningModule):
         parser.add_argument('--learning_rate', type=float, default=1e-4)
         parser.add_argument('--weight_decay', type=float, default=0.0)
         parser.add_argument('--use_lr_scheduler', action='store_true')
-        parser.add_argument('--lr_scheduler_step_size', type=int, default=10000)
-        parser.add_argument('--lr_scheduler_decay_rate', type=float, default=0.96)
+        parser.add_argument('--lr_scheduler_decay_rate', type=float, default=0.997)
 
         return parser
 
@@ -60,9 +59,8 @@ class SCAEMNIST(LightningModule):
         if not self.hparams.use_lr_scheduler:
             return optimizer
 
-        scheduler = StepLR(optimizer=optimizer,
-                           step_size=self.hparams.lr_scheduler_step_size,
-                           gamma=self.hparams.lr_scheduler_decay_rate)
+        scheduler = ExponentialLR(optimizer=optimizer,
+                                  gamma=self.hparams.lr_scheduler_decay_rate)
 
         return [optimizer], [scheduler]
 
@@ -105,6 +103,13 @@ class SCAEMNIST(LightningModule):
         for param_group in optimizer.param_groups:
             return param_group['lr']
 
+    def on_epoch_start(self):
+        if not self.hparams.use_lr_scheduler:
+            return
+
+        current_lr = self.get_lr(self.trainer.optimizers[0])
+        self.logger.experiment.add_scalar('learning_rate', current_lr, self.current_epoch)
+
     def on_batch_end(self) -> None:
         gc.collect()
 
@@ -122,10 +127,6 @@ class SCAEMNIST(LightningModule):
             loss=loss.detach(),
             accuracy=accuracy.detach(),
         )
-        if self.hparams.use_lr_scheduler:
-            lr = self.get_lr(self.trainer.optimizers[0])
-            log.update(learning_rate=lr)
-
         return {'loss': loss, 'log': log}
 
     def validation_step(self, batch, batch_idx):
@@ -247,7 +248,7 @@ if __name__ == '__main__':
     from torch_scae.factory import make_config
     from torch_scae_experiments.mnist.hparams import model_params
 
-    seed_everything(42)
+    seed_everything(0)
 
     model_config = make_config(**model_params)
 
