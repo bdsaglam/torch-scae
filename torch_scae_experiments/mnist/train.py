@@ -143,11 +143,12 @@ class SCAEMNIST(LightningModule):
 
         # log image reconstructions
         n = min(self.hparams.batch_size, 8)
-        recon = torch.cat([res.image.cpu()[:n],
-                           res.rec.pdf.mode().cpu()[:n],
-                           res.bottom_up_rec.pdf.mode().cpu()[:n],
-                           res.top_down_rec.pdf.mode().cpu()[:n]],
-                          0)
+        recons = [res.image.cpu()[:n], res.rec.pdf.mode().cpu()[:n]]
+        if res.get('bottom_up_rec'):
+            recons.append(res.bottom_up_rec.pdf.mode().cpu()[:n])
+        if res.get('top_down_rec'):
+            recons.append(res.top_down_rec.pdf.mode().cpu()[:n])
+        recon = torch.cat(recons, 0)
         rg = torchvision.utils.make_grid(
             recon,
             nrow=n, pad_value=0, padding=1

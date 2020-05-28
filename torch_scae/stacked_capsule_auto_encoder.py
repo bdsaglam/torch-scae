@@ -31,6 +31,7 @@ class SCAE(nn.Module):
             posterior_sparsity_loss_type='entropy',
             posterior_within_example_sparsity_weight=0.,
             posterior_between_example_sparsity_weight=0.,
+            reconstruct_alternatives=True,
     ):
         super().__init__()
 
@@ -72,6 +73,7 @@ class SCAE(nn.Module):
         self.posterior_within_example_sparsity_weight = posterior_within_example_sparsity_weight
         self.posterior_between_example_sparsity_weight = posterior_between_example_sparsity_weight
         self.part_caps_sparsity_weight = part_caps_sparsity_weight
+        self.reconstruct_alternatives = reconstruct_alternatives
 
     def forward(self, image):
         batch_size = image.shape[0]
@@ -145,37 +147,38 @@ class SCAE(nn.Module):
             pose=part_dec_vote,
             presence=part_dec_presence)
 
-        with torch.no_grad():
-            # bottom-up caps image reconstruction
-            res.bottom_up_rec = self.part_decoder(
-                templates=templates,
-                pose=part_enc_res.pose,
-                presence=part_enc_res.presence)
+        if self.reconstruct_alternatives:
+            with torch.no_grad():
+                # bottom-up caps image reconstruction
+                res.bottom_up_rec = self.part_decoder(
+                    templates=templates,
+                    pose=part_enc_res.pose,
+                    presence=part_enc_res.presence)
 
-            # top-down winner caps image reconstruction
-            res.top_down_rec = self.part_decoder(
-                templates=templates,
-                pose=res.winner,
-                presence=part_enc_res.presence)
+                # top-down winner caps image reconstruction
+                res.top_down_rec = self.part_decoder(
+                    templates=templates,
+                    pose=res.winner,
+                    presence=part_enc_res.presence)
 
-            # top-down per caps image reconstruction
-            n_obj_caps = res.vote.shape[1]
+                # top-down per caps image reconstruction
+                n_obj_caps = res.vote.shape[1]
 
-            # tile tensors per object capsule
-            # (B, M, C, H, W) -> (B*O, M, C, H, W)
-            td_templates = templates.repeat_interleave(repeats=n_obj_caps, dim=0)
-            # (B, O, M, 6) -> (B*O, M, 6)
-            td_pose = res.vote.view(-1, *res.vote.shape[2:])
-            # (B, M) -> (B*O, M)
-            td_enc_presence = part_enc_res.presence.repeat_interleave(repeats=n_obj_caps, dim=0)
-            # (B, O, M) -> (B*O, M)
-            td_dec_presence = res.vote_presence.view(-1, *res.vote_presence.shape[2:])
-            td_presence = td_enc_presence * td_dec_presence
-            res.top_down_per_caps_rec = self.part_decoder(
-                templates=td_templates,
-                pose=td_pose,
-                presence=td_presence)
-            del td_templates, td_pose, td_enc_presence, td_dec_presence, td_presence
+                # tile tensors per object capsule
+                # (B, M, C, H, W) -> (B*O, M, C, H, W)
+                td_templates = templates.repeat_interleave(repeats=n_obj_caps, dim=0)
+                # (B, O, M, 6) -> (B*O, M, 6)
+                td_pose = res.vote.view(-1, *res.vote.shape[2:])
+                # (B, M) -> (B*O, M)
+                td_enc_presence = part_enc_res.presence.repeat_interleave(repeats=n_obj_caps, dim=0)
+                # (B, O, M) -> (B*O, M)
+                td_dec_presence = res.vote_presence.view(-1, *res.vote_presence.shape[2:])
+                td_presence = td_enc_presence * td_dec_presence
+                res.top_down_per_caps_rec = self.part_decoder(
+                    templates=td_templates,
+                    pose=td_pose,
+                    presence=td_presence)
+                del td_templates, td_pose, td_enc_presence, td_dec_presence, td_presence
 
         # Decode parts into reconstructions. END
 

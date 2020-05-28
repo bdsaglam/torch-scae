@@ -55,5 +55,6 @@ model_params = dict(
         posterior_sparsity_loss_type='entropy',
         posterior_within_example_sparsity_weight=0.7,
         posterior_between_example_sparsity_weight=0.2,
+        reconstruct_alternatives=False,
     )
 )
