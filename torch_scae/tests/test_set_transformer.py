@@ -12,7 +12,7 @@ class SetTransformerTestCase(unittest.TestCase):
         d_k = 16
         d_v = 32
         N = 10
-        M = 40
+        M = 10
 
         q = torch.rand(B, N, d_k)
         k = torch.rand(B, M, d_k)
@@ -27,7 +27,7 @@ class SetTransformerTestCase(unittest.TestCase):
         d_k = 16
         d_v = 32
         N = 10
-        M = 40
+        M = 10
         n_heads = 3
 
         q = torch.rand(B, N, d_k)
@@ -45,7 +45,7 @@ class SetTransformerTestCase(unittest.TestCase):
         B = 32
         d = 16
         N = 10
-        M = 40
+        M = 10
         n_heads = 3
 
         q = torch.rand(B, N, d)
@@ -62,7 +62,7 @@ class SetTransformerTestCase(unittest.TestCase):
         B = 32
         d = 16
         N = 10
-        M = 40
+        M = 10
         n_heads = 3
 
         q = torch.rand(B, N, d)
@@ -98,7 +98,7 @@ class SetTransformerTestCase(unittest.TestCase):
         n_inducing_points = 5
 
         x = torch.rand(B, N, d)
-        presence = torch.rand(B, N)
+        presence = None
 
         with torch.no_grad():
             isab = ISAB(d=d, n_heads=n_heads, n_inducing_points=n_inducing_points,
@@ -135,7 +135,7 @@ class SetTransformerTestCase(unittest.TestCase):
         n_layers = 3
 
         x = torch.rand(B, N, dim_in)
-        presence = torch.rand(B, N)
+        presence = None
 
         with torch.no_grad():
             st = SetTransformer(
@@ -163,7 +163,7 @@ class SetTransformerTestCase(unittest.TestCase):
         n_layers = 3
 
         x = torch.rand(B, N, dim_in)
-        presence = torch.rand(B, N)
+        presence = None
 
         with torch.no_grad():
             st = SetTransformer(
