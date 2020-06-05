@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name='torch_scae',
-    version=0.1,
+    version=0.2,
     packages=find_packages(),
     install_requires=[
         'monty>=3.0.2',

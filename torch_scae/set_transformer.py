@@ -202,12 +202,16 @@ class SetTransformer(nn.Module):
 
         self.fc2 = nn.Linear(dim_hidden, dim_out)
 
-        self.pma = PMA(d=dim_out,
-                       n_heads=n_heads,
-                       n_seeds=n_outputs,
-                       layer_norm=layer_norm)
+        self.seeds = nn.Parameter(torch.zeros(1, n_outputs, dim_out), requires_grad=True)
+        with torch.no_grad():
+            nn.init.xavier_uniform_(self.seeds)
+
+        self.multi_head_attention = MultiHeadQKVAttention(
+            d_k=dim_out, d_v=dim_out, n_heads=n_heads)
 
     def forward(self, x, presence=None):
+        batch_size = x.shape[0]
+
         h = self.fc1(x)
 
         for sab in self.sabs:
@@ -215,4 +219,5 @@ class SetTransformer(nn.Module):
 
         z = self.fc2(h)
 
-        return self.pma(z, presence)
+        s = self.seeds.repeat(batch_size, 1, 1)
+        return self.multi_head_attention(s, z, z, presence)
