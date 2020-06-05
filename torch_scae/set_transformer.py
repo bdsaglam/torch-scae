@@ -120,6 +120,10 @@ class MAB(nn.Module):
     def forward(self, queries, keys, presence=None):
         h = self.mqkv(queries, keys, keys, presence)  # (B, N, d)
         h = h + queries  # (B, N, d)
+
+        if presence is not None:
+            h = h * presence.unsqueeze(-1)
+
         if self.layer_norm:
             h = self.ln0(h)  # (B, N, d)
 
