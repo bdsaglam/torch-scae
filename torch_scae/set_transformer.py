@@ -21,21 +21,17 @@ def qkv_attention(queries, keys, values, presence=None):
     Returns:
       Tensor of shape [B, N, d_v]
     """
-
     d_k = queries.shape[-1]
 
     # [B, N, d_k] x [B, d_k, M] = [B, N, M]
     routing = torch.matmul(queries, keys.transpose(1, 2))
-
     if presence is not None:
         routing -= (1. - presence.unsqueeze(-2)) * 1e32
-
     routing = F.softmax(routing / np.sqrt(d_k), -1)
 
     # every output is a linear combination of all inputs
     # [B, N, M] x [B, M, d_v] = [B, N, d_v]
-    out = torch.matmul(routing, values)
-    return out
+    return torch.matmul(routing, values)
 
 
 class MultiHeadQKVAttention(nn.Module):
@@ -75,31 +71,26 @@ class MultiHeadQKVAttention(nn.Module):
         if presence is not None:
             assert values.shape[:2] == presence.shape
 
-        batch_size = queries.shape[0]
+        B, N, d_k = queries.shape
+        M, d_v = values.shape[1:]
+        H = self.n_heads
 
         q_p = self.q_projector(queries)  # (B, N, d_k_p)
         k_p = self.k_projector(keys)  # (B, M, d_k_p)
         v_p = self.v_projector(values)  # (B, M, d_v_p)
         del queries, keys, values
 
-        q_s = q_p.split(self.d_k_s, -1)  # [(B, N, d_k_s)] * H
-        k_s = k_p.split(self.d_k_s, -1)  # [(B, M, d_k_s)] * H
-        v_s = v_p.split(self.d_v_s, -1)  # [(B, M, d_v_s)] * H
-        del q_p, k_p, v_p
-
-        q = torch.cat(q_s, 0)  # (H*B, N, d_k_s)
-        k = torch.cat(k_s, 0)  # (H*B, M, d_k_s)
-        v = torch.cat(v_s, 0)  # (H*B, M, d_v_s)
+        q = q_p.view(B, N, H, -1).permute(2, 0, 1, 3).contiguous().view(H * B, N, -1)  # (H*B, N, d_k_s)
+        k = k_p.view(B, M, H, -1).permute(2, 0, 1, 3).contiguous().view(H * B, M, -1)  # (H*B, M, d_k_s)
+        v = v_p.view(B, M, H, -1).permute(2, 0, 1, 3).contiguous().view(H * B, M, -1)  # (H*B, M, d_v_s)
 
         if presence is not None:
             presence = presence.repeat(self.n_heads, 1)
 
         o = qkv_attention(q, k, v, presence)  # (H*B, N, d_v_s)
-        o = o.split(batch_size, 0)  # [(B, N, d_v_s)] * H
-        o = torch.cat(o, -1)  # (B, N, d_v_p)
+        o = o.view(H, B, N, -1).permute(1, 2, 0, 3).contiguous().view(B, N, -1)
 
-        out = self.o_projector(o)  # (B, N, d_v)
-        return out
+        return self.o_projector(o)  # (B, N, d_v)
 
 
 class MAB(nn.Module):
