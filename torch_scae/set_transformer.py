@@ -56,10 +56,9 @@ class MultiHeadQKVAttention(nn.Module):
         self.d_v = d_v
         self.n_heads = n_heads
 
-        self.d_k_s = int(math.ceil(d_k / n_heads))
-        self.d_v_s = int(math.ceil(d_v / n_heads))
-        d_k_p = self.d_k_s * n_heads
-        d_v_p = self.d_v_s * n_heads
+        # make sure that dimension of vectors is divisible by n_heads
+        d_k_p = int(math.ceil(d_k / n_heads)) * n_heads
+        d_v_p = int(math.ceil(d_v / n_heads)) * n_heads
 
         self.q_projector = nn.Linear(d_k, d_k_p)
         self.k_projector = nn.Linear(d_k, d_k_p)
@@ -102,7 +101,6 @@ class MultiHeadQKVAttention(nn.Module):
 
         o = qkv_attention(q, k, v, presence)  # (H*B, N, d_v_s)
         o = o.view(H, B, N, -1).permute(1, 2, 0, 3).contiguous().view(B, N, -1)
-
         return self.o_projector(o)  # (B, N, d_v)
 
 
@@ -156,8 +154,8 @@ class ISAB(nn.Module):
 
     def forward(self, x, presence=None):
         batch_size = x.shape[0]
-        H = self.mab0(self.I.repeat(batch_size, 1, 1), x, presence)
-        return self.mab1(x, H)
+        h = self.mab0(self.I.repeat(batch_size, 1, 1), x, presence)
+        return self.mab1(x, h)
 
 
 class PMA(nn.Module):
