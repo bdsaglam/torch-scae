@@ -120,7 +120,7 @@ class MAB(nn.Module):
         h = h + queries  # (B, N, d)
 
         if presence is not None:
-            assert presence.shape[1] == queries.shape[1]
+            assert presence.shape[1] == queries.shape[1] == keys.shape[1]
             h = h * presence.unsqueeze(-1)
 
         if self.layer_norm:
