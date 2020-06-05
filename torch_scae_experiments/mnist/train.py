@@ -15,6 +15,7 @@ from torchvision import transforms
 from torchvision.datasets import MNIST
 
 from torch_scae import factory
+from torch_scae.optimizers import RAdam
 
 
 class SCAEMNIST(LightningModule):
@@ -51,10 +52,16 @@ class SCAEMNIST(LightningModule):
                                 momentum=0.9,
                                 eps=eps,
                                 weight_decay=self.hparams.weight_decay)
-        else:
+        elif self.hparams.optimizer_type == "RAdam":
+            optimizer = RAdam(self.parameters(),
+                              lr=self.hparams.learning_rate,
+                              weight_decay=self.hparams.weight_decay)
+        elif self.hparams.optimizer_type == "Adam":
             optimizer = Adam(self.parameters(),
                              lr=self.hparams.learning_rate,
                              weight_decay=self.hparams.weight_decay)
+        else:
+            raise ValueError("Unknown optimizer type.")
 
         if not self.hparams.use_lr_scheduler:
             return optimizer
