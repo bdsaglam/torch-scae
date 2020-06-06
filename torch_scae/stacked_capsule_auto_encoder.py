@@ -201,25 +201,30 @@ class SCAE(nn.Module):
         return res
 
     def loss(self, res, reconstruction_target, label=None):
+        log = dict()
         # image reconstruction likelihood
         rec_ll_per_pixel = res.rec.pdf.log_prob(reconstruction_target)
         rec_ll = rec_ll_per_pixel.view(rec_ll_per_pixel.shape[0], -1) \
             .sum(-1).mean()
         loss = -rec_ll
+        log.update(rec_ll_loss=-rec_ll)
 
         # image reconstruction mse loss
         if self.recon_mse_weight > 0:
             mse_per_pixel = (reconstruction_target - res.rec.pdf.mode()) ** 2
             mse = mse_per_pixel.view(mse_per_pixel.shape[0], -1).sum(-1).mean()
             loss += self.recon_mse_weight * mse
+            log.update(mse=mse)
 
         # part capsule sparsity loss
         if self.part_caps_sparsity_weight > 0:
             part_caps_l1 = res.part_presence.sum(-1).mean()
             loss += self.part_caps_sparsity_weight * part_caps_l1
+            log.update(part_caps_loss=part_caps_l1)
 
         # capsule likelihood
         loss += -self.caps_ll_weight * res.log_prob
+        log.update(log_prob_loss=-res.log_prob)
 
         # prior sparsity loss
         if self.prior_within_example_sparsity_weight > 0 \
@@ -233,6 +238,8 @@ class SCAE(nn.Module):
 
             loss += (self.prior_within_example_sparsity_weight * prior_within_sparsity_loss
                      + self.prior_between_example_sparsity_weight * prior_between_sparsity_loss)
+            log.update(prior_within_sparsity_loss=prior_within_sparsity_loss,
+                       prior_between_sparsity_loss=prior_between_sparsity_loss)
 
         # posterior sparsity loss
         if self.prior_within_example_sparsity_weight > 0 \
@@ -247,9 +254,12 @@ class SCAE(nn.Module):
 
             loss += (self.posterior_within_example_sparsity_weight * posterior_within_sparsity_loss
                      + self.posterior_between_example_sparsity_weight * posterior_between_sparsity_loss)
+            log.update(posterior_within_sparsity_loss=posterior_within_sparsity_loss,
+                       posterior_between_sparsity_loss=posterior_between_sparsity_loss)
 
         # object capsule regularization losses
         loss += self.cpr_dynamic_reg_weight * res.cpr_dynamic_reg_loss
+        log.update(cpr_dynamic_reg_loss=res.cpr_dynamic_reg_loss)
 
         # classification losses
         if label is not None:
@@ -259,8 +269,9 @@ class SCAE(nn.Module):
             posterior_cls_xe = F.cross_entropy(res.posterior_cls_prob, target=label)
 
             loss += prior_cls_xe + posterior_cls_xe
+            log.update(prior_cls_xe=prior_cls_xe, posterior_cls_xe=posterior_cls_xe)
 
-        return loss
+        return loss, log
 
     def calculate_accuracy(self, res, label):
         prior_pred = res.prior_cls_prob.argmax(-1)

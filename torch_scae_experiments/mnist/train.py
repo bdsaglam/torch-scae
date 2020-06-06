@@ -125,14 +125,15 @@ class SCAEMNIST(LightningModule):
         reconstruction_target = image
 
         res = self(image=image)
-        loss = self.scae.loss(res,
-                              reconstruction_target=reconstruction_target,
-                              label=label)
+        loss, loss_info = self.scae.loss(res,
+                                         reconstruction_target=reconstruction_target,
+                                         label=label)
         accuracy = self.scae.calculate_accuracy(res, label)
 
         log = dict(
             loss=loss.detach(),
             accuracy=accuracy.detach(),
+            **loss_info
         )
         return {'loss': loss, 'log': log}
 
@@ -141,9 +142,9 @@ class SCAEMNIST(LightningModule):
         reconstruction_target = image
 
         res = self(image=image)
-        loss = self.scae.loss(res,
-                              reconstruction_target=reconstruction_target,
-                              label=label)
+        loss, loss_info = self.scae.loss(res,
+                                         reconstruction_target=reconstruction_target,
+                                         label=label)
         accuracy = self.scae.calculate_accuracy(res, label)
 
         out = {'val_loss': loss, 'accuracy': accuracy}
