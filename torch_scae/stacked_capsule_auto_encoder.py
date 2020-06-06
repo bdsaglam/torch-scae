@@ -192,12 +192,10 @@ class SCAE(nn.Module):
 
             res.prior_cls_prob = self.prior_classifier(
                 res.caps_presence_prob.detach())
-            res.prior_cls_pred = res.prior_cls_prob.argmax(-1)
 
             mass_explained_by_capsule = res.posterior_mixing_prob.sum(1)
             res.posterior_cls_prob = self.prior_classifier(
                 mass_explained_by_capsule.detach())
-            res.posterior_cls_pred = res.posterior_cls_prob.argmax(-1)
             del mass_explained_by_capsule
 
         return res
