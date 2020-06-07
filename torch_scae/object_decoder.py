@@ -216,7 +216,7 @@ class CapsuleLayer(nn.Module):
         else:
             presence_per_caps = torch.sigmoid(presence_logit_per_caps)
 
-        presence_per_vote = presence_per_caps * torch.sigmoid(presence_logit_per_vote)  # (B, O, V)
+        vote_presence = presence_per_caps * torch.sigmoid(presence_logit_per_vote)  # (B, O, V)
         del presence_per_caps
 
         # (B, O, V)
@@ -229,7 +229,7 @@ class CapsuleLayer(nn.Module):
         return AttrDict(
             vote=vote,  # (B, O, V, 3, 3)
             scale=scale_per_vote,  # (B, O, V)
-            vote_presence=presence_per_vote,  # (B, O, V)
+            vote_presence=vote_presence,  # (B, O, V)
             presence_logit_per_caps=presence_logit_per_caps,  # (B, O, 1)
             presence_logit_per_vote=presence_logit_per_vote,  # (B, O, V)
             cpr_dynamic_reg_loss=cpr_dynamic_reg_loss,
@@ -273,20 +273,24 @@ class CapsuleLikelihood:
         dummy_vote_log_prob = torch.zeros(
             batch_size, 1, n_input_points, device=device) + np.log(0.01)
 
-        # (B, O+1, M)
-        vote_log_prob = torch.cat([vote_log_prob, dummy_vote_log_prob], 1)
+        # p(x_m | k, m)
+        vote_log_prob = torch.cat([vote_log_prob, dummy_vote_log_prob], 1)  # (B, O+1, M)
         del dummy_vote_log_prob
 
         #
-        dummy_logit = torch.zeros(batch_size, 1, 1, device=device) + np.log(0.01)
-        dummy_logit = dummy_logit.repeat(1, 1, n_input_points)  # (B, 1, M)
+        dummy_logit = torch.full((batch_size, 1, n_input_points),
+                                 fill_value=np.log(0.01), device=device)
 
         mixing_logit = math_ops.log_safe(self.vote_presence_prob)  # (B, O, M)
         mixing_logit = torch.cat([mixing_logit, dummy_logit], 1)  # (B, O+1, M)
         mixing_log_prob = mixing_logit - mixing_logit.logsumexp(1, keepdim=True)  # (B, O+1, M)
 
+        # (B, O + 1, M)
+        posterior_mixing_logits_per_point = mixing_logit + vote_log_prob
+        del vote_log_prob
+
         # (B, M)
-        mixture_log_prob_per_point = (mixing_logit + vote_log_prob).logsumexp(1)
+        mixture_log_prob_per_point = posterior_mixing_logits_per_point.logsumexp(1)
 
         if presence is not None:
             presence = presence.float()
@@ -300,13 +304,9 @@ class CapsuleLikelihood:
         mixture_log_prob_per_batch = mixture_log_prob_per_example.mean()
         del mixture_log_prob_per_example
 
-        # (B, O + 1, M)
-        posterior_mixing_logits_per_point = mixing_logit + vote_log_prob
-        del vote_log_prob
-
-        # [B, M]
+        # winner object index per part
         winning_vote_idx = torch.argmax(
-            posterior_mixing_logits_per_point[:, :-1], 1)
+            posterior_mixing_logits_per_point[:, :-1], 1)  # (B, M)
 
         batch_idx = torch.arange(batch_size, device=device).unsqueeze(1)  # (B, 1)
         batch_idx = batch_idx.repeat(1, n_input_points)  # (B, M)
@@ -330,7 +330,10 @@ class CapsuleLikelihood:
 
         # mask for votes which are better than dummy vote
         # (B, O, M)
-        vote_presence = mixing_logit[:, :-1] > mixing_logit[:, -1:]
+        vote_presence = (mixing_logit[:, :-1] > mixing_logit[:, -1:]).float()
+
+        # is winner capsule or dummy
+        is_from_capsule = winning_vote_idx // n_input_points
 
         # Soft winner. START
         # (B, O+1, M)
@@ -359,7 +362,7 @@ class CapsuleLikelihood:
 
         return AttrDict(
             log_prob=mixture_log_prob_per_batch,
-            vote_presence=vote_presence.float(),
+            vote_presence=vote_presence,
             winner=winning_vote,
             winner_presence=winning_presence,
             soft_winner=soft_winner_vote,
@@ -367,6 +370,7 @@ class CapsuleLikelihood:
             posterior_mixing_prob=posterior_mixing_prob,
             mixing_log_prob=mixing_log_prob,
             mixing_logit=mixing_logit,
+            is_from_capsule=is_from_capsule,
         )
 
 
