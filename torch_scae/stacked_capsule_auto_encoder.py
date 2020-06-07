@@ -204,8 +204,7 @@ class SCAE(nn.Module):
         log = dict()
         # image reconstruction likelihood
         rec_ll_per_pixel = res.rec.pdf.log_prob(reconstruction_target)
-        rec_ll = rec_ll_per_pixel.view(rec_ll_per_pixel.shape[0], -1) \
-            .sum(-1).mean()
+        rec_ll = rec_ll_per_pixel.view(rec_ll_per_pixel.shape[0], -1).sum(-1).mean()
         loss = -rec_ll
         log.update(rec_ll_loss=-rec_ll)
 
