@@ -172,7 +172,7 @@ class SCAE(nn.Module):
                 # (B, M) -> (B*O, M)
                 td_enc_presence = part_enc_res.presence.repeat_interleave(repeats=n_obj_caps, dim=0)
                 # (B, O, M) -> (B*O, M)
-                td_dec_presence = res.vote_presence.view(-1, *res.vote_presence.shape[2:])
+                td_dec_presence = res.vote_presence_binary.view(-1, *res.vote_presence.shape[2:])
                 td_presence = td_enc_presence * td_dec_presence
                 res.top_down_per_caps_rec = self.part_decoder(
                     templates=td_templates,

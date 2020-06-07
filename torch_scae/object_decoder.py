@@ -285,6 +285,9 @@ class CapsuleLikelihood:
         mixing_logit = torch.cat([mixing_logit, dummy_logit], 1)  # (B, O+1, M)
         mixing_log_prob = mixing_logit - mixing_logit.logsumexp(1, keepdim=True)  # (B, O+1, M)
 
+        # mask for votes which are better than dummy vote
+        vote_presence_binary = (mixing_logit[:, :-1] > mixing_logit[:, -1:]).float()  # (B, O, M)
+
         # (B, O + 1, M)
         posterior_mixing_logits_per_point = mixing_logit + vote_log_prob
         del vote_log_prob
@@ -328,10 +331,6 @@ class CapsuleLikelihood:
         assert winning_presence.shape == (batch_size, n_input_points)
         del idx
 
-        # mask for votes which are better than dummy vote
-        # (B, O, M)
-        vote_presence = (mixing_logit[:, :-1] > mixing_logit[:, -1:]).float()
-
         # is winner capsule or dummy
         is_from_capsule = winning_vote_idx // n_input_points
 
@@ -362,7 +361,7 @@ class CapsuleLikelihood:
 
         return AttrDict(
             log_prob=mixture_log_prob_per_batch,
-            vote_presence=vote_presence,
+            vote_presence_binary=vote_presence_binary,
             winner=winning_vote,
             winner_presence=winning_presence,
             soft_winner=soft_winner_vote,
@@ -414,6 +413,11 @@ class CapsuleObjectDecoder(nn.Module):
         # and flatten last two dimensions
         res.vote = res.vote[..., :-1, :].view(batch_size, n_caps, n_votes, -1)
 
+        res.caps_presence_prob = torch.max(
+            res.vote_presence.view(batch_size, n_caps, n_votes),
+            2
+        )[0]
+
         likelihood = CapsuleLikelihood(
             vote=res.vote,
             scale=res.scale,
@@ -424,10 +428,7 @@ class CapsuleObjectDecoder(nn.Module):
         res.update(ll_res)
         del likelihood
 
-        res.caps_presence_prob = torch.max(
-            res.vote_presence.view(batch_size, n_caps, n_votes),
-            2
-        )[0]
+
 
         return res
 
