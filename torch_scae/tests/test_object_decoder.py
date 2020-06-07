@@ -102,7 +102,7 @@ class CapsuleLikelihoodTestCase(unittest.TestCase):
             result.soft_winner_presence.shape == (B, V)
         )
         self.assertTrue(
-            result.posterior_mixing_prob.shape == (B, V, O)
+            result.posterior_mixing_prob.shape == (B, O, V)
         )
         self.assertTrue(
             result.mixing_logit.shape == (B, O + 1, V)
@@ -181,7 +181,7 @@ class CapsuleObjectDecoderTestCase(unittest.TestCase):
             result.soft_winner_presence.shape == (B, V)
         )
         self.assertTrue(
-            result.posterior_mixing_prob.shape == (B, V, O)
+            result.posterior_mixing_prob.shape == (B, O, V)
         )
         self.assertTrue(
             result.mixing_logit.shape == (B, O + 1, V)

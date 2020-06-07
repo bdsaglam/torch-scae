@@ -357,8 +357,8 @@ class CapsuleLikelihood:
         assert soft_winner_presence.shape == (batch_size, n_input_points)
         # Soft winner. END
 
-        # (B, M, O)
-        posterior_mixing_prob = posterior_mixing_prob[:, :-1].transpose(1, 2)
+        # (B, O, M)
+        posterior_mixing_prob = posterior_mixing_prob[:, :-1]
 
         return AttrDict(
             log_prob=mixture_log_prob_per_batch,

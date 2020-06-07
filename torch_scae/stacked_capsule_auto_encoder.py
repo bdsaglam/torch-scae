@@ -193,7 +193,7 @@ class SCAE(nn.Module):
             res.prior_cls_prob = self.prior_classifier(
                 res.caps_presence_prob.detach())
 
-            mass_explained_by_capsule = res.posterior_mixing_prob.sum(1)
+            mass_explained_by_capsule = res.posterior_mixing_prob.sum(-1)
             res.posterior_cls_prob = self.prior_classifier(
                 mass_explained_by_capsule.detach())
             del mass_explained_by_capsule
@@ -244,8 +244,8 @@ class SCAE(nn.Module):
         # posterior sparsity loss
         if self.prior_within_example_sparsity_weight > 0 \
                 or self.prior_between_example_sparsity_weight > 0:
-            n_points = res.posterior_mixing_prob.shape[1]
-            mass_explained_by_capsule = res.posterior_mixing_prob.sum(1)
+            n_points = res.posterior_mixing_prob.shape[-1]
+            mass_explained_by_capsule = res.posterior_mixing_prob.sum(-1)
             (posterior_within_sparsity_loss,
              posterior_between_sparsity_loss) = sparsity_loss(
                 self.posterior_sparsity_loss_type,
