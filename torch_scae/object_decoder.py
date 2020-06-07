@@ -453,8 +453,6 @@ def capsule_l2_loss(caps_presence_prob,
     between_example_constant = float(batch_size) / n_classes  # B / C
     between_example = torch.mean(
         (caps_presence_prob.sum(0) - between_example_constant) ** 2)
-    # normalize with batch_size
-    between_example = between_example / (between_example_constant ** 2)
 
     return within_example, between_example
 
