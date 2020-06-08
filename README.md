@@ -43,17 +43,8 @@ After training for 5 epochs
 ## Custom model
 
 For a custom model, create a parameter dictionary similar to the one at 
-```torch_scae_experiments.mnist.hparams.model_params``` .
-
-Then, create full config with ```torch_scae.factory.make_config```.
-```python
-from torch_scae import factory
-
-custom_params = dict(...)
-config = factory.make_config(**custom_params)
-model = factory.make_scae(your_custom_config)
+```torch_scae_experiments.mnist.hparams.model_params```
 ```
-
 
 ### References
 
