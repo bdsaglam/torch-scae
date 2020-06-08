@@ -225,7 +225,9 @@ class SCAEMNIST(LightningModule):
         return {'test_loss': avg_loss, 'log': log}
 
 
-def train(model_config, **training_kwargs):
+def train(model_params, **training_kwargs):
+    model_config = make_config(**model_params)
+
     training_params = vars(parse_args())
     training_params.update(training_kwargs)
 
@@ -273,4 +275,4 @@ if __name__ == '__main__':
 
     args = parse_args(sys.argv[1:])
 
-    train(model_config=model_config, **vars(args))
+    train(model_params, **vars(args))
