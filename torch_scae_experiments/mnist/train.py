@@ -11,7 +11,6 @@ from torch.optim.adam import Adam
 from torch.optim.lr_scheduler import ExponentialLR
 from torch.optim.rmsprop import RMSprop
 from torch.utils.data import DataLoader, random_split
-from torchvision import transforms
 from torchvision.datasets import MNIST
 
 from torch_scae import factory
@@ -44,7 +43,6 @@ class SCAEMNIST(LightningModule):
         return self.scae(image=image)
 
     def configure_optimizers(self):
-
         if self.hparams.optimizer_type == "RMSprop":
             eps = 1e-2 / float(self.hparams.batch_size) ** 2
             optimizer = RMSprop(self.parameters(),
@@ -71,20 +69,33 @@ class SCAEMNIST(LightningModule):
 
         return [optimizer], [scheduler]
 
+    def make_transforms(self):
+        image_size = (28, 28)
+        output_size = self.hparams.model_config['image_shape'][1:]
+
+        if output_size[0] != image_size[0]:
+            padding = tuple((output_size[i] - image_size[i]) // 2 for i in range(len(output_size)))
+            translate = tuple(p / o for p, o in zip(padding, output_size))
+
+            transforms = torchvision.transforms.Compose([
+                torchvision.transforms.Pad(padding, fill=0, padding_mode='constant'),
+                torchvision.transforms.RandomAffine(degrees=0, translate=translate, fillcolor=0),
+                torchvision.transforms.ToTensor(),
+            ])
+        else:
+            transforms = torchvision.transforms.ToTensor()
+
+        return transforms
+
     def prepare_data(self):
         data_dir = self.hparams.data_dir
 
-        # transform
-        transform = transforms.Compose([
-            transforms.ToTensor(),
-        ])
-
-        # download
-        mnist_train = MNIST(data_dir, train=True, download=True, transform=transform)
-        mnist_test = MNIST(data_dir, train=False, download=True, transform=transform)
-
-        # train/val split
+        # train and validation datasets
+        mnist_train = MNIST(data_dir, train=True, download=True, transform=self.make_transforms())
         mnist_train, mnist_val = random_split(mnist_train, [55000, 5000])
+
+        # test dataset
+        mnist_test = MNIST(data_dir, train=False, download=True, transform=torchvision.transforms.ToTensor())
 
         # assign to use in data loaders
         self.train_dataset = mnist_train
