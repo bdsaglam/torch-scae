@@ -14,6 +14,7 @@ from torch.utils.data import DataLoader, random_split
 from torchvision.datasets import MNIST
 
 from torch_scae import factory
+from torch_scae.factory import make_config
 from torch_scae.optimizers import RAdam
 
 
@@ -266,12 +267,10 @@ def parse_args(argv=None):
 
 if __name__ == '__main__':
     import sys
-    from torch_scae.factory import make_config
+
     from torch_scae_experiments.mnist.hparams import model_params
 
-    seed_everything(0)
-
-    model_config = make_config(**model_params)
+    seed_everything(42)
 
     args = parse_args(sys.argv[1:])
 
