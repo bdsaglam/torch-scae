@@ -296,8 +296,7 @@ class CapsuleLikelihood:
         mixture_log_prob_per_point = posterior_mixing_logits_per_point.logsumexp(1)
 
         if presence is not None:
-            presence = presence.float()
-            mixture_log_prob_per_point = mixture_log_prob_per_point * presence
+            mixture_log_prob_per_point = mixture_log_prob_per_point * presence.float()
 
         # (B,)
         mixture_log_prob_per_example = mixture_log_prob_per_point.sum(1)
