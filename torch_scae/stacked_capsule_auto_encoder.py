@@ -191,7 +191,7 @@ class SCAE(nn.Module):
             assert self.posterior_classifier is not None
 
             res.prior_cls_prob = self.prior_classifier(
-                res.caps_presence_prob.detach())
+                res.caps_presence.detach())
 
             mass_explained_by_capsule = res.posterior_mixing_prob.sum(-1)
             res.posterior_cls_prob = self.prior_classifier(
@@ -231,7 +231,7 @@ class SCAE(nn.Module):
             (prior_within_sparsity_loss,
              prior_between_sparsity_loss) = sparsity_loss(
                 self.prior_sparsity_loss_type,
-                res.caps_presence_prob,
+                res.caps_presence,
                 n_classes=self.n_classes,
                 within_example_constant=self.prior_within_example_constant)
 

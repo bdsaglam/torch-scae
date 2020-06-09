@@ -190,7 +190,7 @@ class CapsuleObjectDecoderTestCase(unittest.TestCase):
             result.mixing_log_prob.shape == (B, O + 1, V)
         )
         self.assertTrue(
-            result.caps_presence_prob.shape == (B, O)
+            result.caps_presence.shape == (B, O)
         )
 
 
