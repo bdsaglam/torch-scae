@@ -1,5 +1,5 @@
 model_params = dict(
-    image_shape=(1, 28, 28),
+    image_shape=(1, 40, 40),
     n_classes=10,
     n_part_caps=40,
     n_obj_caps=32,
