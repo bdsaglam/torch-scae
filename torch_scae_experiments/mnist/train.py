@@ -44,8 +44,8 @@ class SCAEMNIST(LightningModule):
         return self.scae(image=image)
 
     def configure_optimizers(self):
+        eps = 1e-2 / float(self.hparams.batch_size) ** 2
         if self.hparams.optimizer_type == "RMSprop":
-            eps = 1e-2 / float(self.hparams.batch_size) ** 2
             optimizer = RMSprop(self.parameters(),
                                 lr=self.hparams.learning_rate,
                                 momentum=0.9,
@@ -54,10 +54,12 @@ class SCAEMNIST(LightningModule):
         elif self.hparams.optimizer_type == "RAdam":
             optimizer = RAdam(self.parameters(),
                               lr=self.hparams.learning_rate,
+                              eps=eps,
                               weight_decay=self.hparams.weight_decay)
         elif self.hparams.optimizer_type == "Adam":
             optimizer = Adam(self.parameters(),
                              lr=self.hparams.learning_rate,
+                             eps=eps,
                              weight_decay=self.hparams.weight_decay)
         else:
             raise ValueError("Unknown optimizer type.")
