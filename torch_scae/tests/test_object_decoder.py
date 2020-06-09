@@ -87,7 +87,7 @@ class CapsuleLikelihoodTestCase(unittest.TestCase):
             result.log_prob.shape == tuple()
         )
         self.assertTrue(
-            result.vote_presence.shape == (B, O, V)
+            result.vote_presence_binary.shape == (B, O, V)
         )
         self.assertTrue(
             result.winner.shape == (B, V, P)
