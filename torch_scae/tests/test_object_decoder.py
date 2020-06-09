@@ -68,14 +68,14 @@ class CapsuleLikelihoodTestCase(unittest.TestCase):
 
         vote = torch.rand(B, O, V, P)
         scale = torch.rand(B, O, V)
-        vote_presence_prob = torch.rand(B, O, V)
+        vote_presence = torch.rand(B, O, V)
         dummy_vote = torch.rand(1, 1, V, P)
 
         with torch.no_grad():
             capsule_likelihood = CapsuleLikelihood(
                 vote=vote,
                 scale=scale,
-                vote_presence=vote_presence_prob,
+                vote_presence=vote_presence,
                 dummy_vote=dummy_vote
             )
         part_pose = torch.rand(B, V, P)
