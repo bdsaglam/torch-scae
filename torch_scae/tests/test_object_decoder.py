@@ -75,7 +75,7 @@ class CapsuleLikelihoodTestCase(unittest.TestCase):
             capsule_likelihood = CapsuleLikelihood(
                 vote=vote,
                 scale=scale,
-                vote_presence_prob=vote_presence_prob,
+                vote_presence=vote_presence_prob,
                 dummy_vote=dummy_vote
             )
         part_pose = torch.rand(B, V, P)

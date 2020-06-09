@@ -243,12 +243,12 @@ class CapsuleLayer(nn.Module):
 class CapsuleLikelihood:
     """Capsule voting mechanism."""
 
-    def __init__(self, vote, scale, vote_presence_prob, dummy_vote):
+    def __init__(self, vote, scale, vote_presence, dummy_vote):
         super().__init__()
         self.n_caps = vote.shape[1]  # O
         self.vote = vote  # (B, O, M, P)
         self.scale = scale  # (B, O, M)
-        self.vote_presence_prob = vote_presence_prob  # (B, O, M)
+        self.vote_presence = vote_presence  # (B, O, M)
         self.dummy_vote = dummy_vote  # (1, 1, M, P)
 
     def _get_pdf(self, votes, scales):
@@ -281,7 +281,7 @@ class CapsuleLikelihood:
         dummy_logit = torch.full((batch_size, 1, n_input_points),
                                  fill_value=np.log(0.01), device=device)
 
-        mixing_logit = math_ops.log_safe(self.vote_presence_prob)  # (B, O, M)
+        mixing_logit = math_ops.log_safe(self.vote_presence)  # (B, O, M)
         mixing_logit = torch.cat([mixing_logit, dummy_logit], 1)  # (B, O+1, M)
         mixing_log_prob = mixing_logit - mixing_logit.logsumexp(1, keepdim=True)  # (B, O+1, M)
 
@@ -327,7 +327,7 @@ class CapsuleLikelihood:
 
         # (B, M)
         winning_presence = \
-            self.vote_presence_prob[idx[:, :, 0], idx[:, :, 1], idx[:, :, 2]]
+            self.vote_presence[idx[:, :, 0], idx[:, :, 1], idx[:, :, 2]]
         assert winning_presence.shape == (batch_size, n_input_points)
         del idx
 
@@ -343,7 +343,7 @@ class CapsuleLikelihood:
         dummy_presence = torch.zeros([batch_size, 1, n_input_points], device=device)
 
         votes = torch.cat((self.vote, dummy_vote), 1)  # (B, O+1, M, P)
-        vote_presence = torch.cat([self.vote_presence_prob, dummy_presence], 1)  # (B, O+1, M)
+        vote_presence = torch.cat([self.vote_presence, dummy_presence], 1)  # (B, O+1, M)
         del dummy_vote
         del dummy_presence
 
@@ -419,7 +419,7 @@ class CapsuleObjectDecoder(nn.Module):
         likelihood = CapsuleLikelihood(
             vote=res.vote,
             scale=res.scale,
-            vote_presence_prob=res.vote_presence,
+            vote_presence=res.vote_presence,
             dummy_vote=self.dummy_vote
         )
         ll_res = likelihood(part_pose, presence=part_presence)
