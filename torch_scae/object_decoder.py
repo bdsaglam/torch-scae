@@ -343,7 +343,7 @@ class CapsuleLikelihood:
         dummy_presence = torch.zeros([batch_size, 1, n_input_points], device=device)
 
         votes = torch.cat((self.vote, dummy_vote), 1)  # (B, O+1, M, P)
-        presence = torch.cat([self.vote_presence_prob, dummy_presence], 1)  # (B, O+1, M)
+        vote_presence = torch.cat([self.vote_presence_prob, dummy_presence], 1)  # (B, O+1, M)
         del dummy_vote
         del dummy_presence
 
@@ -352,7 +352,7 @@ class CapsuleLikelihood:
         assert soft_winner_vote.shape == (batch_size, n_input_points, dim_in)
 
         # (B, M)
-        soft_winner_presence = torch.sum(posterior_mixing_prob * presence, 1)
+        soft_winner_presence = torch.sum(posterior_mixing_prob * vote_presence, 1)
         assert soft_winner_presence.shape == (batch_size, n_input_points)
         # Soft winner. END
 
