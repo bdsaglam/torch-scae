@@ -92,8 +92,8 @@ class CapsuleImageEncoder(nn.Module):
             noise = (torch.rand_like(presence_logit) - .5) * self.noise_scale
             presence_logit = presence_logit + noise  # (B, M)
 
-        presence_prob = torch.sigmoid(presence_logit)  # (B, M)
+        presence = torch.sigmoid(presence_logit)  # (B, M)
         pose = cv_ops.geometric_transform(pose, self.similarity_transform)  # (B, M, P)
         return AttrDict(pose=pose,
-                        presence=presence_prob,
+                        presence=presence,
                         feature=special_feature)
