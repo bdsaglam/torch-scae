@@ -412,12 +412,10 @@ class CapsuleObjectDecoder(nn.Module):
         # remove homogeneous coord row from transformation matrices
         # and flatten last two dimensions
         res.vote = res.vote[..., :-1, :].view(batch_size, n_caps, n_votes, -1)
+        # compute capsule presence by maximum part vote
+        res.caps_presence_prob = res.vote_presence.max(-1)[0]
 
-        res.caps_presence_prob = torch.max(
-            res.vote_presence.view(batch_size, n_caps, n_votes),
-            2
-        )[0]
-
+        # compute likelihood of object decoding
         likelihood = CapsuleLikelihood(
             vote=res.vote,
             scale=res.scale,
@@ -427,8 +425,6 @@ class CapsuleObjectDecoder(nn.Module):
         ll_res = likelihood(part_pose, presence=part_presence)
         res.update(ll_res)
         del likelihood
-
-
 
         return res
 
