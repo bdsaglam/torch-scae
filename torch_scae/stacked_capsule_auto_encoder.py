@@ -272,7 +272,7 @@ class SCAE(nn.Module):
 
         return loss, log
 
-    def calculate_accuracy(self, res, label):
+    def calculate_accuracy(self, res, label: torch.Tensor):
         prior_pred = res.prior_cls_prob.argmax(-1)
         prior_cls_acc = (prior_pred == label).float().mean()
 
