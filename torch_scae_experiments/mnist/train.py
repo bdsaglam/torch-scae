@@ -29,7 +29,7 @@ from torchvision.datasets import MNIST
 
 from torch_scae import factory
 from torch_scae.factory import make_config
-from torch_scae.optimizers import RAdam
+from torch_scae.optimizers import RAdam, LookAhead
 
 
 class SCAEMNIST(LightningModule):
@@ -49,6 +49,9 @@ class SCAEMNIST(LightningModule):
         parser.add_argument('--optimizer_type', type=str, default='RMSprop')
         parser.add_argument('--learning_rate', type=float, default=3e-5)
         parser.add_argument('--weight_decay', type=float, default=0.0)
+        parser.add_argument('--look_ahead', action='store_true')
+        parser.add_argument('--look_ahead_k', type=int, default=5)
+        parser.add_argument('--look_ahead_alpha', type=float, default=0.5)
         parser.add_argument('--use_lr_scheduler', action='store_true')
         parser.add_argument('--lr_scheduler_decay_rate', type=float, default=0.997)
 
@@ -77,6 +80,11 @@ class SCAEMNIST(LightningModule):
                              weight_decay=self.hparams.weight_decay)
         else:
             raise ValueError("Unknown optimizer type.")
+
+        if self.hparams.look_ahead:
+            optimizer = LookAhead(optimizer,
+                                  k=self.hparams.look_ahead_k,
+                                  alpha=self.hparams.look_ahead_alpha)
 
         if not self.hparams.use_lr_scheduler:
             return optimizer
