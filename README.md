@@ -44,9 +44,8 @@ After training for 5 epochs
 
 For a custom model, create a parameter dictionary similar to the one at 
 ```torch_scae_experiments.mnist.hparams.model_params```
-```
 
-### References
+## References
 
 1. Kosiorek, A. R., Sabour, S., Teh, Y. W., & Hinton, G. E. (2019). 
 Stacked Capsule Autoencoders. NeurIPS. 
