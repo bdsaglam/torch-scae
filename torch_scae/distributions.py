@@ -32,7 +32,7 @@ class GaussianMixture:
         return self.mixing_logits.shape[1]
 
     def mixing_log_prob(self):
-        return self.mixing_logits - self.mixing_logits.logsumexp(1, keepdim=True)
+        return F.log_softmax(self.mixing_logits, 1)
 
     def mean(self):
         mixing_prob = F.softmax(self.mixing_logits, 1)
