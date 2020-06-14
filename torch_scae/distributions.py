@@ -65,9 +65,9 @@ class GaussianMixture:
         if maximum:
             mixing_log_prob += self._component_log_prob(dist_mode_value)
 
-        dims = len(mixing_log_prob.shape)
-        dim_order = list(range(dims - 1))
-        dim_order.insert(1, dims - 1)
+        n_dim = len(mixing_log_prob.shape)
+        dim_order = list(range(n_dim - 1))
+        dim_order.insert(1, n_dim - 1)
         mask = F.one_hot(mixing_log_prob.argmax(1),
                          mixing_log_prob.shape[1]).permute(*dim_order)
 
