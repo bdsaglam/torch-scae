@@ -165,6 +165,8 @@ class TemplateBasedImageDecoder(nn.Module):
         Returns:
           (B, n_templates, n_channels, *output_size) tensor.
         """
+        device = templates.device
+
         # B, M, C, H, W
         batch_size, n_templates, n_channels, height, width = templates.shape
 
@@ -218,7 +220,7 @@ class TemplateBasedImageDecoder(nn.Module):
         if self.learn_output_scale:
             scale = F.softplus(self.scale) + 1e-4
         else:
-            scale = transformed_templates.new_tensor([1.0])
+            scale = torch.tensor([1.0], device=device)
 
         if presence is not None:
             bg_presence = presence.new_ones([batch_size, 1])
@@ -235,7 +237,7 @@ class TemplateBasedImageDecoder(nn.Module):
         )
 
         return AttrDict(
-            transformed_templates=transformed_templates[:, :-1],
-            mixing_logits=template_mixing_logits[:, :-1],
+            transformed_templates=transformed_templates,
+            mixing_logits=template_mixing_logits,
             pdf=rec_pdf,
         )
