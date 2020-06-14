@@ -21,7 +21,7 @@ class GaussianMixture:
     def __init__(self, normal_dist: Normal, mixing_logits):
         """
         Args:
-          normal_dist: torch normal distribution object
+          normal_dist: torch normal distribution, [B, K, ...]
           mixing_logits: tensor [B, K, ...] with K the number of components.
         """
         self.dist = normal_dist
@@ -38,10 +38,10 @@ class GaussianMixture:
         mixing_prob = F.softmax(self.mixing_logits, 1)
         return torch.sum(mixing_prob * self.dist.mean, 1)
 
-    def log_prob(self, x):
-        x = x.unsqueeze(1)
-        lp = self._component_log_prob(x)
-        return torch.logsumexp(lp + self.mixing_log_prob(), 1)
+    def log_prob(self, x):  # (B, ...)
+        x = x.unsqueeze(1)  # (B, 1, ...)
+        lp = self._component_log_prob(x)  # (B, K, ...)
+        return torch.logsumexp(lp + self.mixing_log_prob(), 1)  # (B, ...)
 
     def _component_log_prob(self, x):
         lp = self.dist.log_prob(x)
@@ -55,7 +55,6 @@ class GaussianMixture:
             gradient estimator for the mode. Otherwise there is no gradient
             with respect to the mixing coefficients due to the `argmax` op.
           maximum: if True, attempt to return the highest-density mode.
-
         Returns:
           Mode.
         """
