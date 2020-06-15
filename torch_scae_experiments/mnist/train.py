@@ -52,7 +52,7 @@ class SCAEMNIST(LightningModule):
         parser.add_argument('--look_ahead', action='store_true')
         parser.add_argument('--look_ahead_k', type=int, default=5)
         parser.add_argument('--look_ahead_alpha', type=float, default=0.5)
-        parser.add_argument('--use_lr_scheduler', action='store_true')
+        parser.add_argument('--use_lr_scheduler', type=bool, default=True)
         parser.add_argument('--lr_scheduler_decay_rate', type=float, default=0.997)
 
         return parser
