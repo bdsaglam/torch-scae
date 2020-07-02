@@ -50,7 +50,8 @@ def geometric_transform(pose_tensor,
 
     if similarity:
         scale = scale_x
-        pose = [scale * c, -scale * s, trans_x, scale * s, scale * c, trans_y]
+        pose = [scale * c, -scale * s, trans_x,
+                scale * s, scale * c, trans_y]
     else:
         pose = [
             scale_x * c + shear * scale_y * s,
