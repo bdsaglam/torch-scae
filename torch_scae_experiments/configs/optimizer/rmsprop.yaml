@@ -1,0 +1,5 @@
+optimizer:
+  type: RMSprop
+  learning_rate: 0.00003
+  momentum: 0.9
+  weight_decay: 0.0

@@ -1,0 +1,26 @@
+defaults:
+  - optimizer: rmsprop
+  - model: mnist
+
+seed: 42
+
+data_loader:
+  batch_size: 128
+  num_workers: 1
+
+dataset:
+  directory: "./data"
+
+meta_optimizer:
+  look_ahead: False
+  look_ahead_k: 5
+  look_ahead_alpha: 0.5
+
+lr_scheduler:
+  active: True
+  decay_rate: 0.997
+
+
+trainer:
+  max_epochs: 600
+  gradient_clip_val: 0

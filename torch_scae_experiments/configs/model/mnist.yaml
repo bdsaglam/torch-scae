@@ -1,0 +1,52 @@
+model:
+  image_shape: [1, 40, 40]
+  n_classes: 10
+  n_obj_caps: 32
+  n_part_caps: 40
+  ocae_decoder_capsule_params:
+    allow_deformations: true
+    caps_dropout_rate: 0.0
+    dim_caps: 32
+    hidden_sizes: [128]
+    learn_vote_scale: true
+    noise_scale: 4.0
+    noise_type: uniform
+    similarity_transform: false
+  ocae_encoder_set_transformer_params:
+    dim_hidden: 16
+    dim_out: 256
+    layer_norm: true
+    n_heads: 1
+    n_layers: 3
+  pcae_cnn_encoder_params:
+    activate_final: true
+    kernel_sizes: [3,3,3,3]
+    out_channels: [128, 128, 128, 128]
+    strides: [2,2,1,1]
+  pcae_decoder_params:
+    background_value: true
+    learn_output_scale: false
+    use_alpha_channel: true
+  pcae_encoder_params:
+    n_poses: 6
+    n_special_features: 16
+    similarity_transform: false
+  pcae_template_generator_params:
+    color_nonlin: sigmoid
+    colorize_templates: true
+    template_nonlin: sigmoid
+    template_size: [11, 11]
+  scae_params:
+    caps_ll_weight: 1.0
+    cpr_dynamic_reg_weight: 10
+    posterior_between_example_sparsity_weight: 0.2
+    posterior_sparsity_loss_type: entropy
+    posterior_within_example_sparsity_weight: 0.7
+    presence_type: enc
+    prior_between_example_sparsity_weight: 0.35
+    prior_sparsity_loss_type: l2
+    prior_within_example_sparsity_weight: 2.0
+    reconstruct_alternatives: false
+    stop_grad_caps_input: true
+    stop_grad_caps_target: true
+    vote_type: enc

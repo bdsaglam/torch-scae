@@ -14,7 +14,7 @@ from .sample_hparams import model_params
 
 class SCAETestCase(unittest.TestCase):
     def test_scae(self):
-        config = Namespace(**factory.make_config(**model_params))
+        config = Namespace(**factory.prepare_model_params(**model_params))
 
         cnn_encoder = CNNEncoder(**config.pcae_cnn_encoder)
         part_encoder = CapsuleImageEncoder(
