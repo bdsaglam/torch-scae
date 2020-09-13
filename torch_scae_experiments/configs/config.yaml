@@ -6,7 +6,7 @@ seed: 42
 
 data_loader:
   batch_size: 128
-  num_workers: 1
+  num_workers: 2
 
 dataset:
   directory: "./data"
