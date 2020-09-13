@@ -7,6 +7,9 @@ notebooks/
 # PyTorch Lightning
 *lightning_logs/
 
+# Hydra outputs folder
+outputs/
+
 # PyCharm files
 .idea
 
