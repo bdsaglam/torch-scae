@@ -20,7 +20,5 @@ lr_scheduler:
   active: True
   decay_rate: 0.997
 
-
 trainer:
   max_epochs: 600
-  gradient_clip_val: 0

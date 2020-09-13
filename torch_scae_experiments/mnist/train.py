@@ -12,6 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import pathlib
+
+import hydra
 from omegaconf import DictConfig
 from pytorch_lightning import Trainer, seed_everything
 from pytorch_lightning.callbacks import ModelCheckpoint
@@ -36,3 +39,15 @@ def train(cfg: DictConfig):
 
     trainer = Trainer(**cfg.trainer)
     trainer.fit(experiment)
+
+
+@hydra.main(config_path=str(pathlib.Path(__file__).parent.parent / "configs"),
+            config_name="config")
+def main(cfg) -> None:
+    print(cfg.pretty())
+    train(cfg)
+
+
+if __name__ == "__main__":
+    print(__file__)
+    main()
