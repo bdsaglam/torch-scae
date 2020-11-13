@@ -2,7 +2,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 
-def MLP(sizes, activation=nn.ReLU, activate_final=True, bias=True):
+def MLP(sizes, activation=nn.ReLU, activate_final=False, bias=True):
     n = len(sizes)
     assert n >= 2, "There must be at least two sizes"
 
