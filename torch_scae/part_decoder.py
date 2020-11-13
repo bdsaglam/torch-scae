@@ -65,6 +65,7 @@ class TemplateGenerator(nn.Module):
         q = q[:self.n_templates, :n_elems].reshape(template_shape)
         q = q.astype(np.float32)
         q = (q - q.min()) / (q.max() - q.min())
+        q = 0.1 * q
         self.template_logits = nn.Parameter(torch.from_numpy(q),
                                             requires_grad=True)
 
