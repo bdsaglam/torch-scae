@@ -8,7 +8,7 @@ setup(
         'monty==3.0.2',
         'numpy==1.17.2',
         'hydra-core==1.0.0',
-        'torch==1.4.0',
+        'torch==2.2.0',
         'torchvision==0.5.0',
         'pytorch-lightning==0.9.0',
     ],
