@@ -83,10 +83,7 @@ class CapsuleLayer(nn.Module):
     def _build(self):
         # Use separate parameters to do predictions for different capsules.
         sizes = [self.dim_feature] + self.hidden_sizes + [self.dim_caps]
-        self.mlps = nn.ModuleList([
-            nn_ext.MLP(sizes=sizes)
-            for _ in range(self.n_caps)
-        ])
+        self.mlp = nn_ext.BatchMLP(self.n_caps, sizes)
 
         self.output_shapes = (
             [self.n_votes, self.n_transform_params],  # OPR-dynamic
@@ -101,10 +98,7 @@ class CapsuleLayer(nn.Module):
         # we don't use bias in the output layer in order to separate the static
         # and dynamic parts of the OP
         sizes = [self.dim_caps + 1] + self.hidden_sizes + [self.n_outputs]
-        self.caps_mlps = nn.ModuleList([
-            nn_ext.MLP(sizes=sizes, bias=False)
-            for _ in range(self.n_caps)
-        ])
+        self.caps_mlp = nn_ext.BatchMLP(self.n_caps, sizes, bias_final=False)
 
         self.caps_bias_list = nn.ParameterList([
             nn.Parameter(torch.zeros(1, self.n_caps, *shape), requires_grad=True)
@@ -134,12 +128,8 @@ class CapsuleLayer(nn.Module):
         # Predict capsule and additional params from the input encoding.
         # [B, O, D]
 
-        caps_feature_list = feature.unbind(1)  # [(B, F)] * O
-        caps_param_list = [self.mlps[i](caps_feature_list[i])
-                           for i in range(self.n_caps)]  # [(B, D)] * O
-        del feature, caps_feature_list
-        raw_caps_param = torch.stack(caps_param_list, 1)  # (B, O, D)
-        del caps_param_list
+        raw_caps_param = self.mlp(feature)  # (B, O, D)
+        del feature
 
         if self.caps_dropout_rate == 0.0:
             caps_exist = torch.ones(batch_size, self.n_caps, 1)  # (B, O, 1)
@@ -151,12 +141,7 @@ class CapsuleLayer(nn.Module):
         caps_param = torch.cat([raw_caps_param, caps_exist], -1)  # (B, O, D+1)
         del raw_caps_param, caps_exist
 
-        caps_eparam_list = caps_param.unbind(1)  # [(B, D+1)] * O
-        all_param_list = [self.caps_mlps[i](caps_eparam_list[i])
-                          for i in range(self.n_caps)]  # [(B, A)] * O
-        del caps_eparam_list
-        all_param = torch.stack(all_param_list, 1)  # (B, O, A)
-        del all_param_list
+        all_param = self.caps_mlp(caps_param)  # (B, O, A)
         all_param_split_list = torch.split(all_param, self.splits, -1)
         result = [t.view(batch_size, self.n_caps, *s)
                   for (t, s) in zip(all_param_split_list, self.output_shapes)]
@@ -331,7 +316,7 @@ class CapsuleLikelihood:
         del idx
 
         # is winner capsule or dummy
-        is_from_capsule = winning_vote_idx // n_input_points
+        is_from_capsule = winning_vote_idx
 
         # Soft winner. START
         # (B, O+1, M)

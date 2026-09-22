@@ -10,6 +10,9 @@ notebooks/
 # Hydra outputs folder
 outputs/
 
+# Virtual environment
+.venv/
+
 # PyCharm files
 .idea
 

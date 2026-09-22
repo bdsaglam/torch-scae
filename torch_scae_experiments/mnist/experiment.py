@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import torch
+from hydra.utils import to_absolute_path
 import torchvision
 from torch.utils.data import random_split
 from torchvision.datasets import MNIST
@@ -31,7 +33,7 @@ class MNISTExperiment(BaseExperiment):
 
             transforms = torchvision.transforms.Compose([
                 torchvision.transforms.Pad(padding, fill=0, padding_mode='constant'),
-                torchvision.transforms.RandomAffine(degrees=0, translate=translate, fillcolor=0),
+                torchvision.transforms.RandomAffine(degrees=0, translate=translate, fill=0),
                 torchvision.transforms.ToTensor(),
             ])
         else:
@@ -39,15 +41,18 @@ class MNISTExperiment(BaseExperiment):
 
         return transforms
 
-    def prepare_data(self):
-        data_dir = self.cfg.dataset.directory
+    def setup(self, stage=None):
+        data_dir = to_absolute_path(self.cfg.dataset.directory)
 
         # train and validation datasets
-        mnist_train = MNIST(data_dir, train=True, download=True, transform=self.make_transforms())
-        mnist_train, mnist_val = random_split(mnist_train, [55000, 5000])
+        transform = self.make_transforms()
+        mnist_train = MNIST(data_dir, train=True, download=True, transform=transform)
+        mnist_train, mnist_val = random_split(
+            mnist_train, [55000, 5000],
+            generator=torch.Generator().manual_seed(0))
 
-        # test dataset
-        mnist_test = MNIST(data_dir, train=False, download=True, transform=torchvision.transforms.ToTensor())
+        # test dataset, placed on the canvas the same way as the training set
+        mnist_test = MNIST(data_dir, train=False, download=True, transform=transform)
 
         # assign to use in data loaders
         self.train_dataset = mnist_train

@@ -12,6 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+import math
+
+import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
@@ -28,6 +31,39 @@ def MLP(sizes, activation=nn.ReLU, activate_final=True, bias=True):
     if not activate_final:
         layers.pop()
 
+    return nn.Sequential(*layers)
+
+
+class BatchLinear(nn.Module):
+    """Applies K independent linear layers to K inputs: (B, K, I) -> (B, K, O)."""
+
+    def __init__(self, n_linears, in_features, out_features, bias=True):
+        super().__init__()
+        self.weight = nn.Parameter(
+            torch.empty(n_linears, in_features, out_features))
+        nn.init.trunc_normal_(self.weight, std=1 / math.sqrt(in_features),
+                              a=-2 / math.sqrt(in_features),
+                              b=2 / math.sqrt(in_features))
+        self.bias = nn.Parameter(torch.zeros(n_linears, out_features)) \
+            if bias else None
+
+    def forward(self, x):
+        y = torch.einsum('bki,kio->bko', x, self.weight)
+        if self.bias is not None:
+            y = y + self.bias
+        return y
+
+
+def BatchMLP(n_mlps, sizes, activation=nn.ReLU, activate_final=False,
+             bias_final=True):
+    """K independent MLPs for K inputs, like BatchMLP in the TF reference."""
+    layers = []
+    for j in range(len(sizes) - 1):
+        is_final = j == len(sizes) - 2
+        layers.append(BatchLinear(n_mlps, sizes[j], sizes[j + 1],
+                                  bias=bias_final or not is_final))
+        if not is_final or activate_final:
+            layers.append(activation())
     return nn.Sequential(*layers)
 
 

@@ -16,8 +16,9 @@ import pathlib
 
 import hydra
 from omegaconf import DictConfig
-from pytorch_lightning import Trainer, seed_everything
-from pytorch_lightning.callbacks import ModelCheckpoint
+from lightning.pytorch import Trainer, seed_everything
+from lightning.pytorch.callbacks import ModelCheckpoint
+from omegaconf import OmegaConf
 from torch.backends import cudnn
 
 from torch_scae_experiments.mnist.experiment import MNISTExperiment
@@ -31,20 +32,17 @@ def train(cfg: DictConfig):
 
     experiment = MNISTExperiment(cfg)
 
-    if 'save_top_k' in cfg.trainer:
-        checkpoint_callback = ModelCheckpoint(
-            save_top_k=cfg.trainer.save_top_k)
-        cfg.trainer.update(checkpoint_callback=checkpoint_callback)
-        del cfg.trainer['save_top_k']
-
-    trainer = Trainer(**cfg.trainer)
+    checkpoint_callback = ModelCheckpoint(save_last=True)
+    trainer = Trainer(callbacks=[checkpoint_callback],
+                      **OmegaConf.to_container(cfg.trainer))
     trainer.fit(experiment)
+    trainer.test(experiment)
 
 
 @hydra.main(config_path=str(pathlib.Path(__file__).parent.parent / "configs"),
-            config_name="config")
+            config_name="config", version_base=None)
 def main(cfg) -> None:
-    print(cfg.pretty())
+    print(OmegaConf.to_yaml(cfg))
     train(cfg)
 
 

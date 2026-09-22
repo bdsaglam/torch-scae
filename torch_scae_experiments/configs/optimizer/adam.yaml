@@ -1,3 +1,4 @@
+# @package _global_
 optimizer:
   type: Adam
   learning_rate: 0.00003

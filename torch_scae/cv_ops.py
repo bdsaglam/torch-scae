@@ -42,7 +42,7 @@ def geometric_transform(pose_tensor,
 
         trans_x, trans_y, shear = (torch.tanh(t * 5.)
                                    for t in (trans_x, trans_y, shear))
-        theta *= 2. * math.pi
+        theta = theta * 2. * math.pi
     else:
         scale_x, scale_y = (abs(t) + 1e-2 for t in (scale_x, scale_y))
 

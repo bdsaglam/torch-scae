@@ -1,12 +1,15 @@
 defaults:
-  - optimizer: rmsprop
+  - optimizer: tf_rmsprop
   - model: mnist
 
 seed: 42
 
+# torch.compile the model; training is bound by kernel launches otherwise
+compile: True
+
 data_loader:
   batch_size: 128
-  num_workers: 2
+  num_workers: 8
 
 dataset:
   directory: "./data"
@@ -16,9 +19,12 @@ meta_optimizer:
   look_ahead_k: 5
   look_ahead_alpha: 0.5
 
+# The reference TF code builds a decay schedule but never passes it to the
+# optimizer, so the learning rate stays constant there.
 lr_scheduler:
-  active: True
+  active: False
   decay_rate: 0.997
 
+# 300k steps with batch size 128, as in the reference run_mnist.sh
 trainer:
-  max_epochs: 600
+  max_steps: 300000

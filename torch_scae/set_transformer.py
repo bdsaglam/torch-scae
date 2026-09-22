@@ -113,7 +113,11 @@ class MAB(nn.Module):
         if layer_norm:
             self.ln0 = nn.LayerNorm(d)
             self.ln1 = nn.LayerNorm(d)
-        self.fc = nn.Linear(d, d)
+        self.mlp = nn.Sequential(
+            nn.Linear(d, 2 * d),
+            nn.ReLU(),
+            nn.Linear(2 * d, d),
+        )
 
     def forward(self, queries, keys, presence=None):
         h = self.mqkv(queries, keys, keys, presence)  # (B, N, d)
@@ -126,7 +130,7 @@ class MAB(nn.Module):
         if self.layer_norm:
             h = self.ln0(h)  # (B, N, d)
 
-        h = h + F.relu(self.fc(h))  # (B, N, d)
+        h = h + self.mlp(h)  # (B, N, d)
         if self.layer_norm:
             h = self.ln1(h)  # (B, N, d)
 

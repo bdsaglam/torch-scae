@@ -12,7 +12,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-import warnings
 from typing import Tuple
 
 import numpy as np
@@ -26,6 +25,29 @@ from torch_scae.distributions import GaussianMixture
 from torch_scae.general_utils import prod
 from torch_scae.nn_ext import relu1, MLP
 from torch_scae.nn_utils import choose_activation
+
+
+def invert_affine(matrix):
+    """Inverts a batch of (..., 2, 3) affine matrices."""
+    linear, translation = matrix[..., :2], matrix[..., 2:]
+    linear_inv = torch.inverse(linear)
+    return torch.cat([linear_inv, -linear_inv @ translation], -1)
+
+
+def affine_grid(matrix, size):
+    """Same as `F.affine_grid(matrix, size, align_corners=True)`.
+
+    Computed by broadcasting, since the backward pass of `F.affine_grid` is
+    slow for many small grids.
+    """
+    height, width = size[-2:]
+    ys = torch.linspace(-1, 1, height, device=matrix.device)
+    xs = torch.linspace(-1, 1, width, device=matrix.device)
+    ys, xs = ys.view(1, -1, 1), xs.view(1, 1, -1)
+    m = matrix.view(-1, 6, 1, 1)
+    grid_x = m[:, 0] * xs + m[:, 1] * ys + m[:, 2]
+    grid_y = m[:, 3] * xs + m[:, 4] * ys + m[:, 5]
+    return torch.stack([grid_x, grid_y], -1)  # (N, H, W, 2)
 
 
 class TemplateGenerator(nn.Module):
@@ -70,7 +92,8 @@ class TemplateGenerator(nn.Module):
 
         if self.colorize_templates:
             self.templates_color_mlp = MLP(
-                sizes=[self.dim_feature, 32, self.n_channels])
+                sizes=[self.dim_feature, 32, self.n_channels],
+                activate_final=False)
 
     def forward(self, feature=None, batch_size=None):
         """
@@ -173,14 +196,15 @@ class TemplateBasedImageDecoder(nn.Module):
         # transform templates
         templates = templates.view(batch_size * n_templates,
                                    *templates.shape[2:])  # (B*M, C, H, W)
-        affine_matrices = pose.view(batch_size * n_templates, 2, 3)  # (B*M, 2, 3)
+        # The pose maps template coordinates to canvas coordinates, so the
+        # sampling grid (canvas -> template) uses its inverse.
+        affine_matrices = invert_affine(
+            pose.view(batch_size * n_templates, 2, 3))  # (B*M, 2, 3)
         target_size = [
             batch_size * n_templates, n_channels, *self.output_size]
-        with warnings.catch_warnings():
-            warnings.simplefilter('ignore')
-            affine_grids = F.affine_grid(affine_matrices, target_size)
-            transformed_templates = F.grid_sample(
-                templates, affine_grids, align_corners=False)
+        affine_grids = affine_grid(affine_matrices, target_size)
+        transformed_templates = F.grid_sample(
+            templates, affine_grids, align_corners=True)
         transformed_templates = transformed_templates.view(
             batch_size, n_templates, *target_size[1:])
         del templates, target_size, affine_matrices
@@ -200,10 +224,8 @@ class TemplateBasedImageDecoder(nn.Module):
                 batch_size, 1, 1, 1, 1)
             template_mixing_logits = template_mixing_logits.view(
                 batch_size * n_templates, *template_mixing_logits.shape[2:])
-            with warnings.catch_warnings():
-                warnings.simplefilter('ignore')
-                template_mixing_logits = F.grid_sample(
-                    template_mixing_logits, affine_grids, align_corners=False)
+            template_mixing_logits = F.grid_sample(
+                template_mixing_logits, affine_grids, align_corners=True)
             template_mixing_logits = template_mixing_logits.view(
                 batch_size, n_templates, *template_mixing_logits.shape[1:])
 
