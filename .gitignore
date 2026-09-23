@@ -55,5 +55,6 @@ coverage.xml
 
 # OSX
 .DS_Store
+
 # Training runs
-workspace/*/runs/
+workspace/
