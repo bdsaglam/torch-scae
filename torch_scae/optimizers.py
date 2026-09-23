@@ -188,3 +188,50 @@ class LookAhead(Optimizer):
             for name, default in self.defaults.items():
                 for group in self.param_groups:
                     group.setdefault(name, default)
+
+
+class TFRMSprop(Optimizer):
+    """RMSprop with the update rule of `tf.compat.v1.train.RMSPropOptimizer`.
+
+    It differs from `torch.optim.RMSprop` in three ways: the squared-gradient
+    average starts at one, epsilon goes inside the square root, and momentum
+    accumulates the learning-rate-scaled step.
+    """
+
+    def __init__(self, params, lr, decay=0.9, momentum=0.0, eps=1e-10):
+        defaults = dict(lr=lr, decay=decay, momentum=momentum, eps=eps)
+        super().__init__(params, defaults)
+
+    @torch.no_grad()
+    def step(self, closure=None):
+        loss = None
+        if closure is not None:
+            with torch.enable_grad():
+                loss = closure()
+
+        for group in self.param_groups:
+            params, grads, mss, moms = [], [], [], []
+            for p in group['params']:
+                if p.grad is None:
+                    continue
+                state = self.state[p]
+                if not state:
+                    state['ms'] = torch.ones_like(p)
+                    state['mom'] = torch.zeros_like(p)
+                params.append(p)
+                grads.append(p.grad)
+                mss.append(state['ms'])
+                moms.append(state['mom'])
+            if not params:
+                continue
+
+            torch._foreach_mul_(mss, group['decay'])
+            torch._foreach_addcmul_(mss, grads, grads,
+                                    value=1 - group['decay'])
+            denoms = torch._foreach_add(mss, group['eps'])
+            torch._foreach_sqrt_(denoms)
+            torch._foreach_mul_(moms, group['momentum'])
+            torch._foreach_addcdiv_(moms, grads, denoms, value=group['lr'])
+            torch._foreach_sub_(params, moms)
+
+        return loss

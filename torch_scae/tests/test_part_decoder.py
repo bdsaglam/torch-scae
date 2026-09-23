@@ -120,13 +120,13 @@ class TemplateBasedImageDecoderTestCase(unittest.TestCase):
         transformed_templates = decoding_result.transformed_templates
         mixing_logits = decoding_result.mixing_logits
 
+        # the last component is the background
         self.assertTrue(
             transformed_templates.shape == (
-                batch_size, n_templates, n_channels, *output_size)
+                batch_size, n_templates + 1, n_channels, *output_size)
         )
         self.assertTrue(
-            mixing_logits.shape == (
-                batch_size, n_templates, 1, *output_size)
+            mixing_logits.shape[:2] == (batch_size, n_templates + 1)
         )
 
     def test_shape_with_color(self):

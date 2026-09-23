@@ -64,14 +64,10 @@ class SCAE(nn.Module):
         self.stop_grad_caps_target = stop_grad_caps_target
 
         if n_classes:
-            self.prior_classifier = nn.Sequential(
-                nn.Linear(obj_decoder.n_obj_capsules, n_classes),
-                nn.Softmax(-1),
-            )
-            self.posterior_classifier = nn.Sequential(
-                nn.Linear(obj_decoder.n_obj_capsules, n_classes),
-                nn.Softmax(-1),
-            )
+            self.prior_classifier = nn.Linear(obj_decoder.n_obj_capsules,
+                                              n_classes)
+            self.posterior_classifier = nn.Linear(obj_decoder.n_obj_capsules,
+                                                  n_classes)
         else:
             self.prior_classifier = None
             self.posterior_classifier = None
@@ -204,11 +200,11 @@ class SCAE(nn.Module):
             assert self.prior_classifier is not None
             assert self.posterior_classifier is not None
 
-            res.prior_cls_prob = self.prior_classifier(
+            res.prior_cls_logits = self.prior_classifier(
                 res.caps_presence.detach())
 
             mass_explained_by_capsule = res.posterior_mixing_prob.sum(-1)
-            res.posterior_cls_prob = self.prior_classifier(
+            res.posterior_cls_logits = self.posterior_classifier(
                 mass_explained_by_capsule.detach())
             del mass_explained_by_capsule
 
@@ -255,8 +251,8 @@ class SCAE(nn.Module):
                        prior_between_sparsity_loss=prior_between_sparsity_loss)
 
         # posterior sparsity loss
-        if self.prior_within_example_sparsity_weight > 0 \
-                or self.prior_between_example_sparsity_weight > 0:
+        if self.posterior_within_example_sparsity_weight > 0 \
+                or self.posterior_between_example_sparsity_weight > 0:
             n_points = res.posterior_mixing_prob.shape[-1]
             mass_explained_by_capsule = res.posterior_mixing_prob.sum(-1)
             (posterior_within_sparsity_loss,
@@ -278,8 +274,8 @@ class SCAE(nn.Module):
         if label is not None:
             assert self.n_classes is not None
 
-            prior_cls_xe = F.cross_entropy(res.prior_cls_prob, target=label)
-            posterior_cls_xe = F.cross_entropy(res.posterior_cls_prob, target=label)
+            prior_cls_xe = F.cross_entropy(res.prior_cls_logits, target=label)
+            posterior_cls_xe = F.cross_entropy(res.posterior_cls_logits, target=label)
 
             loss += prior_cls_xe + posterior_cls_xe
             log.update(prior_cls_xe=prior_cls_xe, posterior_cls_xe=posterior_cls_xe)
@@ -287,10 +283,10 @@ class SCAE(nn.Module):
         return loss, log
 
     def calculate_accuracy(self, res, label: torch.Tensor):
-        prior_pred = res.prior_cls_prob.argmax(-1)
+        prior_pred = res.prior_cls_logits.argmax(-1)
         prior_cls_acc = (prior_pred == label).float().mean()
 
-        posterior_pred = res.posterior_cls_prob.argmax(-1)
+        posterior_pred = res.posterior_cls_logits.argmax(-1)
         posterior_cls_acc = (posterior_pred == label).float().mean()
 
         best_cls_acc = torch.max(prior_cls_acc, posterior_cls_acc)

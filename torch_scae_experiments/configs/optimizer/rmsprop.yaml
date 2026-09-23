@@ -1,3 +1,4 @@
+# @package _global_
 optimizer:
   type: RMSprop
   learning_rate: 0.00003

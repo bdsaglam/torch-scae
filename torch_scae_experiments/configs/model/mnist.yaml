@@ -1,3 +1,4 @@
+# @package _global_
 model:
   image_shape: [1, 40, 40]
   n_classes: 10
@@ -46,6 +47,7 @@ model:
     prior_between_example_sparsity_weight: 0.35
     prior_sparsity_loss_type: l2
     prior_within_example_sparsity_weight: 2.0
+    prior_within_example_constant: 4.3
     reconstruct_alternatives: false
     stop_grad_caps_input: true
     stop_grad_caps_target: true
