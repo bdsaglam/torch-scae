@@ -24,7 +24,7 @@ from torch.backends import cudnn
 from torch_scae_experiments.mnist.experiment import MNISTExperiment
 
 
-def train(cfg: DictConfig):
+def train(cfg: DictConfig, ckpt_path=None):
     # For reproducibility
     seed_everything(cfg.seed)
     cudnn.deterministic = True
@@ -35,7 +35,7 @@ def train(cfg: DictConfig):
     checkpoint_callback = ModelCheckpoint(save_last=True)
     trainer = Trainer(callbacks=[checkpoint_callback],
                       **OmegaConf.to_container(cfg.trainer))
-    trainer.fit(experiment)
+    trainer.fit(experiment, ckpt_path=ckpt_path)
     trainer.test(experiment)
 
 
